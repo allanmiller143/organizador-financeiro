@@ -1,4 +1,6 @@
 from flask import Flask, jsonify
+from flask_jwt_extended import JWTManager
+from pydantic import ValidationError
 from werkzeug.exceptions import HTTPException
 
 
@@ -12,20 +14,46 @@ class AppError(Exception):
         self.code = code
 
 
+def _error(code: str, message: str, status: int, details=None):
+    body = {"error": {"code": code, "message": message}}
+    if details:
+        body["error"]["details"] = details
+    return jsonify(body), status
+
+
 def register_error_handlers(app: Flask) -> None:
     @app.errorhandler(AppError)
     def handle_app_error(err: AppError):
-        body = {"error": {"code": err.code, "message": err.message}}
-        return jsonify(body), err.status_code
+        return _error(err.code, err.message, err.status_code)
+
+    @app.errorhandler(ValidationError)
+    def handle_validation_error(err: ValidationError):
+        details = [
+            {"field": ".".join(str(p) for p in e["loc"]), "message": e["msg"]}
+            for e in err.errors()
+        ]
+        return _error("validation_error", "Dados inválidos.", 422, details)
 
     @app.errorhandler(HTTPException)
     def handle_http_error(err: HTTPException):
         code = err.name.lower().replace(" ", "_")
-        body = {"error": {"code": code, "message": err.description}}
-        return jsonify(body), err.code
+        return _error(code, err.description, err.code)
 
     @app.errorhandler(Exception)
     def handle_unexpected_error(err: Exception):
         app.logger.exception("Erro inesperado")
-        body = {"error": {"code": "internal_error", "message": "Erro interno do servidor."}}
-        return jsonify(body), 500
+        return _error("internal_error", "Erro interno do servidor.", 500)
+
+
+def register_jwt_error_handlers(jwt: JWTManager) -> None:
+    @jwt.unauthorized_loader
+    def missing_token(reason):
+        return _error("missing_token", "Token de acesso ausente.", 401)
+
+    @jwt.invalid_token_loader
+    def invalid_token(reason):
+        return _error("invalid_token", "Token inválido.", 401)
+
+    @jwt.expired_token_loader
+    def expired_token(jwt_header, jwt_payload):
+        return _error("token_expired", "Token expirado.", 401)
