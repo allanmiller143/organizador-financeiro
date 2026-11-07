@@ -33,7 +33,7 @@ def daily_yield_rate(daily_rate: Decimal, cdi_percent: Decimal) -> Decimal:
     return (daily_rate / 100) * (cdi_percent / 100)
 
 
-def _check_coverage(rates: dict[date, Decimal], start: date, end: date) -> None:
+def check_coverage(rates: dict[date, Decimal], start: date, end: date) -> None:
     too_early = start < min(rates, default=start) - timedelta(days=MAX_GAP_DAYS)
     if not rates or end > max(rates) or too_early:
         raise CdiCoverageError("O CDI gravado não cobre o período pedido.")
@@ -52,7 +52,7 @@ def simulate(
     """
     if start > end:
         return []
-    _check_coverage(rates, start, end)
+    check_coverage(rates, start, end)
 
     flows_by_day: dict[date, Decimal] = defaultdict(Decimal)
     for flow in flows:
