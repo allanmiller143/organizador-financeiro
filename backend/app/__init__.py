@@ -1,12 +1,16 @@
 from flask import Flask
 
 from app.config import config_by_name
+from app.errors import register_error_handlers
 from app.extensions import db, migrate
+from app.logging_config import configure_logging
 
 
 def create_app(config_name: str = "development") -> Flask:
     app = Flask(__name__)
     app.config.from_object(config_by_name[config_name])
+
+    configure_logging(app)
 
     db.init_app(app)
     migrate.init_app(app, db)
@@ -15,5 +19,6 @@ def create_app(config_name: str = "development") -> Flask:
     from app.routes import register_routes
 
     register_routes(app)
+    register_error_handlers(app)
 
     return app
