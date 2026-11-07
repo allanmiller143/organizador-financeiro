@@ -17,10 +17,12 @@ def create_app(config_name: str = "development") -> Flask:
     jwt.init_app(app)
 
     from app import models  # noqa: F401  (registra os modelos)
+    from app.cli import register_cli
     from app.routes import register_routes
 
     register_routes(app)
     register_error_handlers(app)
     register_jwt_error_handlers(jwt)
+    register_cli(app)
 
     return app
