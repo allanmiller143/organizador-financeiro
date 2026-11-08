@@ -1,5 +1,6 @@
 import { Navigate, Route, Routes } from 'react-router-dom'
 
+import { AppLayout } from './components/AppLayout'
 import DashboardPage from './pages/DashboardPage'
 import LoginPage from './pages/LoginPage'
 import RegisterPage from './pages/RegisterPage'
@@ -14,9 +15,11 @@ export default function App() {
         <Route path="/register" element={<RegisterPage />} />
       </Route>
 
-      {/* Telas internas: só quem ESTÁ logado vê. */}
+      {/* Telas internas: só quem ESTÁ logado vê, todas dentro da moldura. */}
       <Route element={<ProtectedRoute />}>
-        <Route path="/" element={<DashboardPage />} />
+        <Route element={<AppLayout />}>
+          <Route path="/" element={<DashboardPage />} />
+        </Route>
       </Route>
 
       {/* Qualquer endereço desconhecido volta para o início. */}

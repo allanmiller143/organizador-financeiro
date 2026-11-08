@@ -22,3 +22,28 @@ export type ApiErrorBody = {
     details?: ApiFieldError[]
   }
 }
+
+export type DashboardTotals = {
+  gross_balance: string 
+  invested: string 
+  gross_yield: string 
+  tax_estimated: string 
+  net_balance: string 
+  tax_paid: string 
+}
+
+export type DashboardAccount = {
+  account_id: string
+  name: string
+  institution: string
+  share_percent: string
+  gross_balance: string
+  net_balance: string
+  gross_yield: string
+}
+
+export type Dashboard = {
+  as_of: string | null 
+  totals: DashboardTotals
+  accounts: DashboardAccount[]
+}
