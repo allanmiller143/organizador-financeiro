@@ -1,0 +1,41 @@
+name: CI
+
+# Quando o robô acorda: ao enviar código para a branch main e em todo pull request.
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  # TRABALHO 1: confere o backend (Python)
+  backend:
+    runs-on: ubuntu-latest # uma máquina Linux limpa, criada na hora
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v6 # baixa o seu código para a máquina
+      - uses: actions/setup-python@v6 # instala o Python
+        with:
+          python-version: "3.13"
+          cache: pip # guarda as bibliotecas para a próxima vez ser mais rápida
+          cache-dependency-path: backend/requirements.txt
+      - run: pip install -r requirements.txt
+      - run: pytest # roda os testes
+
+  # TRABALHO 2: confere o frontend (React)
+  frontend:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6 # instala o Node
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: npm ci # instala exatamente o que está no package-lock.json
+      - run: npm run lint
+      - run: npm run build
