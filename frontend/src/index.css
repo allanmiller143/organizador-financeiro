@@ -1,1 +1,6 @@
 @import "tailwindcss";
+
+/* Impede que o tema escuro do computador pinte os campos nativos (data, número, select). */
+:root {
+  color-scheme: light;
+}

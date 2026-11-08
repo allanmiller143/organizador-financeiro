@@ -8,9 +8,11 @@ from sqlalchemy import func, select
 from app.errors import AppError
 from app.extensions import db
 from app.models import Account, CdiRate
+from app.services.yield_engine import MAX_GAP_DAYS
 
 BCB_URL = "https://api.bcb.gov.br/dados/serie/bcdata.sgs.12/dados"
 WINDOW_DAYS = 365 * 5  # o Banco Central limita o tamanho da janela de consulta
+STALE_AFTER_DAYS = 4  # tolera fim de semana somado a um feriado
 
 
 def fetch_cdi_series(start: date, end: date) -> list[tuple[date, Decimal]]:
@@ -89,8 +91,6 @@ def list_rates(date_from: date | None = None, date_to: date | None = None) -> li
     return list(db.session.scalars(stmt))
 
 
-STALE_AFTER_DAYS = 4  # tolera fim de semana somado a um feriado
-
 def ensure_fresh() -> None:
     """Se o CDI estiver atrasado, tenta sincronizar na hora."""
     if not current_app.config.get("CDI_AUTO_SYNC"):
@@ -104,3 +104,22 @@ def ensure_fresh() -> None:
         sync_cdi()
     except AppError:
         current_app.logger.warning("CDI não atualizado; usando os dados já gravados.")
+
+
+def ensure_covers(start: date) -> None:
+    """Se o CDI gravado começa depois de 'start', baixa o período que falta."""
+    if not current_app.config.get("CDI_AUTO_SYNC"):
+        return
+
+    first = db.session.scalar(select(func.min(CdiRate.reference_date)))
+    if first is None:
+        end = None  # banco vazio: baixa de 'start' até hoje
+    elif first <= start + timedelta(days=MAX_GAP_DAYS):
+        return  # já cobre o período
+    else:
+        end = first - timedelta(days=1)  # baixa só o buraco antes do que já temos
+
+    try:
+        sync_cdi(start=start, end=end)
+    except AppError:
+        current_app.logger.warning("Não foi possível completar o CDI desde %s.", start)

@@ -70,12 +70,16 @@ def _load_rates(start: date, end: date) -> dict[date, Decimal]:
 
 def _build_context(account: Account) -> _Context | None:
     """Reúne o que os motores precisam. Devolve None se não há CDI no banco."""
+    all_flows = _load_flows(account)
+    if all_flows:
+        cdi_service.ensure_covers(all_flows[0].day)  # baixa o CDI que faltar
+
     last_cdi = db.session.scalar(select(func.max(CdiRate.reference_date)))
     if last_cdi is None:
         return None
 
     end = min(date.today(), last_cdi)
-    flows = [flow for flow in _load_flows(account) if flow.day <= end]
+    flows = [flow for flow in all_flows if flow.day <= end]
     start = flows[0].day if flows else end
     return _Context(account, flows, _load_rates(start, end), start, end)
 

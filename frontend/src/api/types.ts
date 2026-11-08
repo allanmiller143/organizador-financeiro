@@ -63,3 +63,33 @@ export type AccountInput = {
   cdi_percent: string
   opened_on: string
 }
+
+export type TransactionKind = 'DEPOSIT' | 'WITHDRAWAL' // aporte | retirada
+
+export type Transaction = {
+  id: string
+  account_id: string
+  kind: TransactionKind
+  amount: string // texto, ex.: "1000.00"
+  occurred_on: string // "AAAA-MM-DD"
+  note: string | null
+}
+
+export type TransactionInput = {
+  kind: TransactionKind
+  amount: string
+  occurred_on: string
+  note: string | null
+}
+
+
+export type AccountSummary = {
+  account_id: string
+  as_of: string
+  gross_balance: string
+  invested: string
+  gross_yield: string
+  tax_estimated: string
+  net_balance: string
+  tax_paid: string
+}

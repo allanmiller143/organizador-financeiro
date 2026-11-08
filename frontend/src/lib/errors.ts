@@ -29,7 +29,23 @@ export function toFormErrors(error: unknown): FormErrors {
     return { fields, general: '' }
   }
 
+    // Erros de data aparecem embaixo do campo de data.
+  if (error.code === 'date_in_future' || error.code === 'date_before_opening') {
+    fields.occurred_on = error.message
+    return { fields, general: '' }
+  }
+
   // Se não há erro de campo, o erro é geral (ex.: senha incorreta).
   const hasFieldErrors = Object.keys(fields).length > 0
   return { fields, general: hasFieldErrors ? '' : error.message }
+}
+
+// Transforma qualquer erro numa frase que ajuda a pessoa.
+export function describeError(error: unknown): string {
+  if (error instanceof ApiError) {
+    if (error.code === 'cdi_not_synced' || error.code === 'cdi_incomplete') {
+      return 'Faltam dados do CDI para este período. Rode "flask --app wsgi sync-cdi --from AAAA-MM-DD" no backend, usando a data de abertura da caixinha, e recarregue a página.'    }
+    return error.message
+  }
+  return 'Não foi possível conectar ao servidor.'
 }

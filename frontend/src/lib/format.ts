@@ -21,3 +21,9 @@ export function formatCdi(value: string): string {
   const number = Number(value).toLocaleString('pt-BR', { maximumFractionDigits: 2 })
   return `${number}% do CDI`
 }
+
+// A data de hoje no formato do <input type="date">: "AAAA-MM-DD".
+// O formato sueco (sv-SE) é exatamente esse, e usa o fuso do seu computador.
+export function todayIso(): string {
+  return new Date().toLocaleDateString('sv-SE')
+}

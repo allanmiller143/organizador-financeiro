@@ -1,5 +1,5 @@
 import { useState } from 'react'
-
+import { Link } from 'react-router-dom'
 import { ApiError } from '../api/client'
 import { AccountForm } from '../components/AccountForm'
 import { Button } from '../components/Button'
@@ -62,7 +62,9 @@ export default function AccountsPage() {
           {accounts.map((account) => (
             <li key={account.id} className="flex items-center justify-between gap-4 p-5">
               <div>
-                <p className="font-medium">{account.name}</p>
+                <Link to={`/caixinhas/${account.id}`} className="font-medium hover:underline">
+                    {account.name}
+                </Link>
                 <p className="text-xs text-slate-500">
                   {account.institution} · {formatCdi(account.cdi_percent)} · aberta em{' '}
                   {formatDate(account.opened_on)}

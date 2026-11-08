@@ -91,3 +91,31 @@ def test_list_cdi_invalid_range_returns_422(client, auth_headers):
     response = client.get("/api/cdi?from=2025-02-01&to=2025-01-01", headers=auth_headers)
 
     assert response.status_code == 422
+
+def test_ensure_covers_downloads_the_missing_early_period(app, fake_bcb):
+    app.config["CDI_AUTO_SYNC"] = True
+    cdi_service.sync_cdi(start=date(2025, 1, 6), end=date(2025, 1, 6))  # só 06/01 gravado
+
+    cdi_service.ensure_covers(date(2024, 12, 20))
+
+    assert fake_bcb[-1] == (date(2024, 12, 20), date(2025, 1, 5))  # só o buraco
+    assert count_rates() == 3  # 06/01 + 02/01 e 03/01 que faltavam
+
+
+def test_ensure_covers_does_nothing_when_already_covered(app, fake_bcb):
+    app.config["CDI_AUTO_SYNC"] = True
+    cdi_service.sync_cdi(start=date(2025, 1, 2), end=date(2025, 1, 10))
+    calls_before = len(fake_bcb)
+
+    cdi_service.ensure_covers(date(2025, 1, 2))
+
+    assert len(fake_bcb) == calls_before
+
+
+def test_ensure_covers_is_off_when_auto_sync_is_disabled(app, fake_bcb):
+    cdi_service.sync_cdi(start=date(2025, 1, 6), end=date(2025, 1, 6))
+    calls_before = len(fake_bcb)
+
+    cdi_service.ensure_covers(date(2024, 12, 20))  # CDI_AUTO_SYNC é False nos testes
+
+    assert len(fake_bcb) == calls_before

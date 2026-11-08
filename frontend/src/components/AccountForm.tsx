@@ -3,7 +3,7 @@ import { useState, type FormEvent } from 'react'
 import { useCreateAccount } from '../hooks/useAccounts'
 import { noErrors, toFormErrors } from '../lib/errors'
 import { Button } from './Button'
-import { TextField } from './TextField'
+import { Field } from './Field'
 
 type AccountFormProps = {
   onDone: () => void // o que fazer quando terminar (a tela fecha o formulário)
@@ -39,7 +39,7 @@ export function AccountForm({ onDone, onCancel }: AccountFormProps) {
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
       <div className="grid gap-4 sm:grid-cols-2">
-        <TextField
+        <Field
           label="Nome da caixinha"
           name="name"
           required
@@ -48,7 +48,7 @@ export function AccountForm({ onDone, onCancel }: AccountFormProps) {
           onChange={(e) => setName(e.target.value)}
           error={errors.fields.name}
         />
-        <TextField
+        <Field
           label="Instituição"
           name="institution"
           required
@@ -56,7 +56,7 @@ export function AccountForm({ onDone, onCancel }: AccountFormProps) {
           onChange={(e) => setInstitution(e.target.value)}
           error={errors.fields.institution}
         />
-        <TextField
+        <Field
           label="Rendimento (% do CDI)"
           name="cdi_percent"
           type="number"
@@ -68,7 +68,7 @@ export function AccountForm({ onDone, onCancel }: AccountFormProps) {
           onChange={(e) => setCdiPercent(e.target.value)}
           error={errors.fields.cdi_percent}
         />
-        <TextField
+        <Field
           label="Data de abertura"
           name="opened_on"
           type="date"

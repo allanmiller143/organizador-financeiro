@@ -32,3 +32,21 @@ export function useDeleteAccount() {
   const refresh = useRefreshAfterChange()
   return useMutation({ mutationFn: accountsApi.remove, onSuccess: refresh })
 }
+
+// LER: uma caixinha só.
+export function useAccount(id: string) {
+  return useQuery({
+    queryKey: ['accounts', id],
+    queryFn: () => accountsApi.get(id),
+    retry: false,
+  })
+}
+
+// LER: o resumo dela (saldo, rendimento, imposto).
+export function useAccountSummary(id: string) {
+  return useQuery({
+    queryKey: ['summary', id],
+    queryFn: () => accountsApi.summary(id),
+    retry: false,
+  })
+}
