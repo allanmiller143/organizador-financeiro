@@ -128,3 +128,15 @@ export type Simulation = {
   depleted_month: number | null // mês em que o dinheiro acabou (null se não acabou)
   months: SimulationPoint[]
 }
+
+// O rendimento de um mês (uma barra do gráfico).
+export type MonthlyYield = {
+  month: string // "2025-01"
+  yield_amount: string // "40.60"
+}
+
+export type MonthlyYields = {
+  account_id: string
+  as_of: string
+  months: MonthlyYield[]
+}

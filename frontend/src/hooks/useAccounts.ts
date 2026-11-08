@@ -50,3 +50,12 @@ export function useAccountSummary(id: string) {
     retry: false,
   })
 }
+
+// LER: o rendimento mês a mês de uma caixinha.
+export function useMonthlyYields(id: string) {
+  return useQuery({
+    queryKey: ['monthly-yields', id],
+    queryFn: () => accountsApi.monthlyYields(id),
+    retry: false,
+  })
+}

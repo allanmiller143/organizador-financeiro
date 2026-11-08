@@ -11,14 +11,15 @@ export function useTransactions(accountId: string) {
   })
 }
 
-// Uma mudança no histórico deixa três coisas velhas: o próprio histórico,
-// o resumo desta caixinha e o dashboard. Buscamos as três de novo.
+// Uma mudança no histórico deixa quatro coisas velhas: o próprio histórico,
+// o resumo desta caixinha, o gráfico mensal e o dashboard. Buscamos tudo de novo.
 function useRefreshAfterChange(accountId: string) {
   const queryClient = useQueryClient()
   return () =>
     Promise.all([
       queryClient.invalidateQueries({ queryKey: ['transactions', accountId] }),
       queryClient.invalidateQueries({ queryKey: ['summary', accountId] }),
+      queryClient.invalidateQueries({ queryKey: ['monthly-yields', accountId] }),
       queryClient.invalidateQueries({ queryKey: ['dashboard'] }),
     ])
 }

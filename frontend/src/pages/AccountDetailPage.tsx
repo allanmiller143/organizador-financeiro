@@ -1,9 +1,10 @@
 import { Link, useParams } from 'react-router-dom'
 
+import { MonthlyYieldsChart } from '../components/MonthlyYieldsChart'
 import { StatCard } from '../components/StatCard'
 import { TransactionForm } from '../components/TransactionForm'
 import { TransactionList } from '../components/TransactionList'
-import { useAccount, useAccountSummary } from '../hooks/useAccounts'
+import { useAccount, useAccountSummary, useMonthlyYields } from '../hooks/useAccounts'
 import { useDeleteTransaction, useTransactions } from '../hooks/useTransactions'
 import { describeError } from '../lib/errors'
 import { formatCdi, formatDate, formatMoney } from '../lib/format'
@@ -14,6 +15,7 @@ export default function AccountDetailPage() {
 
   const account = useAccount(accountId)
   const summary = useAccountSummary(accountId)
+  const monthly = useMonthlyYields(accountId)
   const transactions = useTransactions(accountId)
   const deleteTransaction = useDeleteTransaction(accountId)
 
@@ -35,6 +37,9 @@ export default function AccountDetailPage() {
   }
 
   const data = account.data
+
+  // Só desenhamos o gráfico se algum mês rendeu algo. (Comparação só para decidir o que mostrar.)
+  const hasYield = monthly.data?.months.some((month) => Number(month.yield_amount) > 0) ?? false
 
   return (
     <div className="space-y-8">
@@ -73,6 +78,23 @@ export default function AccountDetailPage() {
             </p>
           </>
         )}
+      </section>
+
+      {/* RENDIMENTO POR MÊS */}
+      <section className="rounded-2xl bg-white p-6 shadow-sm ring-1 ring-slate-200">
+        <h2 className="mb-4 text-lg font-semibold">Rendimento por mês</h2>
+
+        {monthly.isPending && <p className="text-slate-500">Calculando...</p>}
+        {monthly.isError && (
+          <p className="text-sm text-red-700">{describeError(monthly.error)}</p>
+        )}
+        {monthly.data && !hasYield && (
+          <p className="text-sm text-slate-500">
+            Ainda sem rendimento. Registre um aporte com uma data anterior ao último CDI para ver as
+            barras.
+          </p>
+        )}
+        {monthly.data && hasYield && <MonthlyYieldsChart months={monthly.data.months} />}
       </section>
 
       {/* NOVO LANÇAMENTO */}
