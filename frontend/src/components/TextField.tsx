@@ -40,7 +40,7 @@ export function TextField({
             type="button"
             onClick={() => setVisible((v) => !v)}
             aria-label={visible ? 'Ocultar senha' : 'Mostrar senha'}
-            className="absolute right-2 top-1/2 -translate-y-1/2 cursor-pointer rounded-lg p-1.5 text-white/70 transition hover:bg-white/15 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/60"
+            className="absolute right-2 top-1/2 -translate-y-1/2 cursor-pointer rounded-lg p-1.5 text-sky/70 transition hover:bg-white/15 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/60"
           >
             {visible ? <EyeOff size={18} /> : <Eye size={18} />}
           </button>
@@ -48,7 +48,7 @@ export function TextField({
           Icon && (
             <Icon
               size={18}
-              className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-sky/70"
+              className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-[#ff8800]/70"
             />
           )
         )}

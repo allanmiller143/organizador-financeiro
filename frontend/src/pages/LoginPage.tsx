@@ -54,7 +54,7 @@ export default function LoginPage() {
             onChange={(e) => setPassword(e.target.value)}
             error={errors.fields.password}
         />
-        <label className="flex w-fit cursor-pointer items-center gap-2 text-xs text-white/90 transition hover:text-white">
+        <label className="flex w-fit cursor-pointer items-center gap-2 text-sm text-white/90 transition hover:text-white">
             <input
                 type="checkbox"
                 checked={remember}
@@ -71,7 +71,7 @@ export default function LoginPage() {
         </Button>
         </form>
 
-        <p className="mt-6 text-center text-xs text-white/80">
+        <p className="mt-6 text-center text-sm text-white/80">
         Não tem conta?{' '}
         <Link
             to="/register"
