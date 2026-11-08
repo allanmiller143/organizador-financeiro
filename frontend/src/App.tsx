@@ -7,6 +7,7 @@ import RegisterPage from './pages/RegisterPage'
 import AccountsPage from './pages/AccountsPage'
 import AccountDetailPage from './pages/AccountDetailPage'
 import { ProtectedRoute, PublicOnlyRoute } from './routes/guards'
+import ProjectionPage from './pages/ProjectionPage'
 
 export default function App() {
   return (
@@ -23,6 +24,7 @@ export default function App() {
           <Route path="/" element={<DashboardPage />} />
           <Route path="/caixinhas" element={<AccountsPage />} />
           <Route path="/caixinhas/:accountId" element={<AccountDetailPage />} />
+          <Route path="/projecao" element={<ProjectionPage />} />
         </Route>
       </Route>
 

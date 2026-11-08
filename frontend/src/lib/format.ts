@@ -27,3 +27,32 @@ export function formatCdi(value: string): string {
 export function todayIso(): string {
   return new Date().toLocaleDateString('sv-SE')
 }
+
+const moneyCompact = new Intl.NumberFormat('pt-BR', {
+  style: 'currency',
+  currency: 'BRL',
+  notation: 'compact', // 1.200.000 vira "R$ 1,2 mi"
+  maximumFractionDigits: 1,
+})
+
+// Para os números do eixo do gráfico, que precisam ser curtos.
+export function formatMoneyCompact(value: number): string {
+  return moneyCompact.format(value)
+}
+
+export function formatDuration(totalMonths: number): string {
+  const years = Math.floor(totalMonths / 12)
+  const months = totalMonths % 12
+  const parts: string[] = []
+  if (years > 0) parts.push(`${years} ${years === 1 ? 'ano' : 'anos'}`)
+  if (months > 0) parts.push(`${months} ${months === 1 ? 'mês' : 'meses'}`)
+  return parts.join(' e ') || '0 meses'
+}
+
+const MONTH_NAMES = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez']
+
+// "2025-01" -> "jan/25"
+export function formatMonth(month: string): string {
+  const [year, monthNumber] = month.split('-')
+  return `${MONTH_NAMES[Number(monthNumber) - 1]}/${year.slice(2)}`
+}

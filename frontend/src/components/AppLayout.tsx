@@ -25,6 +25,9 @@ export function AppLayout() {
               <NavLink to="/caixinhas" className={linkClass}>
                 Caixinhas
               </NavLink>
+              <NavLink to="/projecao" className={linkClass}>
+                Projeção
+              </NavLink>
             </nav>
           </div>
           <div className="flex items-center gap-4 text-sm">

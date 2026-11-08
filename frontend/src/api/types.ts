@@ -93,3 +93,38 @@ export type AccountSummary = {
   net_balance: string
   tax_paid: string
 }
+
+// O que enviamos para simular. Dinheiro como texto, como sempre.
+export type SimulationInput = {
+  initial_amount: string
+  monthly_deposit: string
+  monthly_withdrawal: string
+  withdrawal_start_month: number
+  horizon_months: number
+  expected_cdi_annual: string
+  cdi_percent: string
+}
+
+// Um mês da projeção (um ponto do gráfico).
+export type SimulationPoint = {
+  month: string // "2027-03"
+  gross_balance: string
+  net_balance: string
+  invested: string
+}
+
+export type SimulationSummary = {
+  gross_balance: string
+  net_balance: string
+  invested: string
+  gross_yield: string
+  tax_estimated: string
+  tax_paid: string
+  withdrawn: string
+}
+
+export type Simulation = {
+  summary: SimulationSummary
+  depleted_month: number | null // mês em que o dinheiro acabou (null se não acabou)
+  months: SimulationPoint[]
+}
