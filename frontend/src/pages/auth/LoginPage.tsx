@@ -66,7 +66,7 @@ export default function LoginPage() {
 
         {errors.general && <p className="text-sm text-red-300">{errors.general}</p>}
 
-        <Button type="submit" loading={submitting} className="w-full">
+        <Button type="submit" variant="glass" loading={submitting} className="w-full">
             Entrar
         </Button>
         </form>

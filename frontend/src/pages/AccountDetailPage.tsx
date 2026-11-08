@@ -1,13 +1,17 @@
+import { useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
-import { MonthlyYieldsChart } from '../components/MonthlyYieldsChart'
-import { StatCard } from '../components/StatCard'
-import { TransactionForm } from '../components/TransactionForm'
-import { TransactionList } from '../components/TransactionList'
+import { ArrowLeft } from 'lucide-react'
+
+import { AccountHeader } from '../components/accounts_detail/AccountHeader'
+import { ErrorMessage } from '../components/ErrorMessage'
+import { LoadingState } from '../components/LoadingState'
 import { useAccount, useAccountSummary, useMonthlyYields } from '../hooks/useAccounts'
 import { useDeleteTransaction, useTransactions } from '../hooks/useTransactions'
 import { describeError } from '../lib/errors'
-import { formatDate, formatMoney } from '../lib/format'
-import { AccountHeader } from '../api/AccountHeader'
+import { SummaryCards } from '../components/accounts_detail/SummaryCards'
+import { HistoryCard } from '../components/accounts_detail/HistoryCard'
+import { NewTransactionDialog } from '../components/accounts_detail/NewTransactionDialog'
+import { AccountCharts } from '../components/accounts_detail/AccountCharts'
 
 export default function AccountDetailPage() {
   // Lê a parte variável do endereço: /caixinhas/:accountId
@@ -18,19 +22,22 @@ export default function AccountDetailPage() {
   const monthly = useMonthlyYields(accountId)
   const transactions = useTransactions(accountId)
   const deleteTransaction = useDeleteTransaction(accountId)
+  const [showTransactionForm, setShowTransactionForm] = useState(false)
 
   // Carregando ou não encontrada: a página nem chega a mostrar o resto.
   if (account.isPending) {
-    return <p className="text-slate-500">Carregando...</p>
+    return <LoadingState message="Carregando..." />
   }
   if (account.isError) {
     return (
-      <div className="space-y-3">
-        <p className="rounded-lg bg-red-50 p-4 text-sm text-red-700">
-          {describeError(account.error)}
-        </p>
-        <Link to="/caixinhas" className="text-sm font-medium text-emerald-700 hover:underline">
-          ← Voltar às caixinhas
+      <div className="space-y-4">
+        <ErrorMessage message={describeError(account.error)} />
+        <Link
+          to="/caixinhas"
+          className="inline-flex items-center gap-1.5 text-sm font-medium text-teal-700 transition hover:text-teal-800"
+        >
+          <ArrowLeft size={16} />
+          Voltar às caixinhas
         </Link>
       </div>
     )
@@ -38,95 +45,31 @@ export default function AccountDetailPage() {
 
   const data = account.data
 
-  // Só desenhamos o gráfico se algum mês rendeu algo. (Comparação só para decidir o que mostrar.)
-  const hasYield = monthly.data?.months.some((month) => Number(month.yield_amount) > 0) ?? false
-
   return (
-    <div className="space-y-8">
-      <AccountHeader account={data} />
-      {/* RESUMO: o resultado do motor de cálculo do backend */}
-      <section className="space-y-3">
-        {summary.isPending && <p className="text-slate-500">Calculando o resumo...</p>}
-        {summary.isError && (
-          <p className="rounded-lg bg-red-50 p-4 text-sm text-red-700">
-            {describeError(summary.error)}
-          </p>
-        )}
-        {summary.data && (
-          <>
-            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-              <StatCard label="Saldo bruto" value={formatMoney(summary.data.gross_balance)} />
-              <StatCard
-                label="Saldo líquido"
-                value={formatMoney(summary.data.net_balance)}
-                hint={`IR estimado: ${formatMoney(summary.data.tax_estimated)}`}
-              />
-              <StatCard label="Total aportado" value={formatMoney(summary.data.invested)} />
-              <StatCard label="Rendimento bruto" value={formatMoney(summary.data.gross_yield)} />
-            </div>
-            <p className="text-xs text-slate-500">
-              Valores calculados até {formatDate(summary.data.as_of)}.
-            </p>
-          </>
-        )}
-      </section>
+    <div className="space-y-6">
+      <AccountHeader
+        account={data}
+        summary={summary}
+        onNewTransaction={() => setShowTransactionForm(true)}
+      />
 
-      {/* RENDIMENTO POR MÊS */}
-      <section className="rounded-2xl bg-white p-6 shadow-sm ring-1 ring-slate-200">
-        <h2 className="mb-4 text-lg font-semibold">Rendimento por mês</h2>
+      <SummaryCards summary={summary} />
 
-        {monthly.isPending && <p className="text-slate-500">Calculando...</p>}
-        {monthly.isError && (
-          <p className="text-sm text-red-700">{describeError(monthly.error)}</p>
-        )}
-        {monthly.data && !hasYield && (
-          <p className="text-sm text-slate-500">
-            Ainda sem rendimento. Registre um aporte com uma data anterior ao último CDI para ver as
-            barras.
-          </p>
-        )}
-        {monthly.data && hasYield && <MonthlyYieldsChart months={monthly.data.months} />}
-      </section>
+      <AccountCharts monthly={monthly} />
 
-      {/* NOVO LANÇAMENTO */}
-      <section className="rounded-2xl bg-white p-6 shadow-sm ring-1 ring-slate-200">
-        <h2 className="mb-4 text-lg font-semibold">Novo lançamento</h2>
-        <TransactionForm accountId={accountId} openedOn={data.opened_on} />
-      </section>
+      <HistoryCard
+        transactions={transactions}
+        deleteTransaction={deleteTransaction}
+        onNew={() => setShowTransactionForm(true)}
+      />
 
-      {/* HISTÓRICO */}
-      <section className="rounded-2xl bg-white p-6 shadow-sm ring-1 ring-slate-200">
-        <h2 className="text-lg font-semibold">Histórico</h2>
-
-        {deleteTransaction.isError && (
-          <p className="mt-3 rounded-lg bg-red-50 p-3 text-sm text-red-700">
-            {describeError(deleteTransaction.error)}
-          </p>
-        )}
-
-        {transactions.isPending && <p className="mt-4 text-slate-500">Carregando...</p>}
-        {transactions.isError && (
-          <p className="mt-4 text-sm text-red-700">{describeError(transactions.error)}</p>
-        )}
-        {transactions.data && transactions.data.length === 0 && (
-          <p className="mt-4 text-sm text-slate-500">
-            Nenhum lançamento ainda. Registre o primeiro aporte acima.
-          </p>
-        )}
-        {transactions.data && transactions.data.length > 0 && (
-          <div className="mt-2">
-            <TransactionList
-              transactions={transactions.data}
-              disabled={deleteTransaction.isPending}
-              onDelete={(transaction) => {
-                if (window.confirm('Apagar este lançamento?')) {
-                  deleteTransaction.mutate(transaction.id)
-                }
-              }}
-            />
-          </div>
-        )}
-      </section>
+      <NewTransactionDialog
+        open={showTransactionForm}
+        onClose={() => setShowTransactionForm(false)}
+        accountId={accountId}
+        openedOn={data.opened_on}
+        transactionCount={transactions.data?.length}
+      />
     </div>
   )
 }

@@ -10,7 +10,7 @@ import { ErrorMessage } from '../components/ErrorMessage'
 import { LoadingState } from '../components/LoadingState'
 import { useAccounts, useDeleteAccount } from '../hooks/useAccounts'
 import { useDashboard } from '../hooks/useDashboard'
-import { AccountRow } from '../components/accounts/accountRow'
+import { AccountRow } from '../components/accounts/AccountRow'
 
 export default function AccountsPage() {
   const { data: accounts, isPending, isError, error } = useAccounts()
