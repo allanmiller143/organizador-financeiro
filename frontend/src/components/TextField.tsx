@@ -1,30 +1,59 @@
-import type { InputHTMLAttributes } from 'react'
+import { useState, type InputHTMLAttributes } from 'react'
+import { Eye, EyeOff, type LucideIcon } from 'lucide-react'
 
-// Aceita tudo que um <input> normal aceita, mais três extras nossos.
 type TextFieldProps = InputHTMLAttributes<HTMLInputElement> & {
-  label: string // o texto em cima do campo
-  error?: string // a mensagem de erro (se houver)
-  hint?: string // uma dica embaixo (ex.: "mínimo de 8 caracteres")
+  label: string
+  error?: string
+  icon?: LucideIcon
 }
 
-export function TextField({ label, error, hint, id, ...inputProps }: TextFieldProps) {
-  const fieldId = id ?? inputProps.name
+export function TextField({
+  label,
+  error,
+  icon: Icon,
+  type = 'text',
+  id,
+  name,
+  ...props
+}: TextFieldProps) {
+  const [visible, setVisible] = useState(false)
+  const isPassword = type === 'password'
+  const inputId = id ?? name
 
   return (
-    <div className="space-y-1">
-      <label htmlFor={fieldId} className="block text-sm font-medium text-slate-700">
+    <div>
+      <label htmlFor={inputId} className="sr-only">
         {label}
       </label>
-      <input
-        id={fieldId}
-        aria-invalid={error ? true : undefined}
-        className={`w-full rounded-lg border px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-emerald-500 ${
-          error ? 'border-red-400' : 'border-slate-300'
-        }`}
-        {...inputProps}
-      />
-      {hint && !error && <p className="text-xs text-slate-500">{hint}</p>}
-      {error && <p className="text-xs text-red-600">{error}</p>}
+      <div className="relative">
+        <input
+          id={inputId}
+          name={name}
+          type={isPassword && visible ? 'text' : type}
+          placeholder={label}
+          className="w-full rounded-xl border border-white/40 bg-white/5 px-4 py-3 pr-12 text-sm text-white placeholder-white/70 outline-none transition hover:border-white/70 hover:bg-white/10 focus:border-white focus:bg-white/15 focus:ring-2 focus:ring-white/30"
+          {...props}
+        />
+
+        {isPassword ? (
+          <button
+            type="button"
+            onClick={() => setVisible((v) => !v)}
+            aria-label={visible ? 'Ocultar senha' : 'Mostrar senha'}
+            className="absolute right-2 top-1/2 -translate-y-1/2 cursor-pointer rounded-lg p-1.5 text-white/70 transition hover:bg-white/15 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/60"
+          >
+            {visible ? <EyeOff size={18} /> : <Eye size={18} />}
+          </button>
+        ) : (
+          Icon && (
+            <Icon
+              size={18}
+              className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-sky/70"
+            />
+          )
+        )}
+      </div>
+      {error && <p className="mt-1 text-xs text-red-300">{error}</p>}
     </div>
   )
 }

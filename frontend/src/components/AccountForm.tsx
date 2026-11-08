@@ -64,7 +64,6 @@ export function AccountForm({ onDone, onCancel }: AccountFormProps) {
           min="0.01"
           max="500"
           step="0.01"
-          hint="Ex.: 100 para 100% do CDI. Depois de criada, não pode ser alterada."
           value={cdiPercent}
           onChange={(e) => setCdiPercent(e.target.value)}
           error={errors.fields.cdi_percent}

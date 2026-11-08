@@ -59,7 +59,6 @@ export default function RegisterPage() {
           autoComplete="new-password"
           required
           minLength={8}
-          hint="Mínimo de 8 caracteres."
           value={password}
           onChange={(e) => setPassword(e.target.value)}
           error={errors.fields.password}
@@ -72,10 +71,10 @@ export default function RegisterPage() {
         </Button>
       </form>
 
-      <p className="mt-6 text-center text-sm text-slate-600">
+      <p className="mt-6 text-center text-sm text-slate-600 text-white ">
         Já tem conta?{' '}
-        <Link to="/login" className="font-medium text-emerald-700 hover:underline">
-          Entrar
+        <Link to="/login" className="font-semibold text-white underline-offset-4 transition hover:underline hover:text-sky-200">
+            Entrar
         </Link>
       </p>
     </AuthLayout>
