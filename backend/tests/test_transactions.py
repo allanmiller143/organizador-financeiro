@@ -157,11 +157,20 @@ def test_update_amount(client, auth_headers):
     tx_id = add(client, auth_headers, account_id).get_json()["transaction"]["id"]
 
     response = client.patch(
-        f"/api/transactions/{tx_id}", json={"amount": "1500.00"}, headers=auth_headers
+        f"/api/transactions/{tx_id}",
+        json={
+            "amount": "1500.00",
+            "occurred_on": "2025-03-10",
+            "note": "Corrigido",
+        },
+        headers=auth_headers,
     )
 
     assert response.status_code == 200
-    assert Decimal(response.get_json()["transaction"]["amount"]) == Decimal("1500.00")
+    updated = response.get_json()["transaction"]
+    assert Decimal(updated["amount"]) == Decimal("1500.00")
+    assert updated["occurred_on"] == "2025-03-10"
+    assert updated["note"] == "Corrigido"
 
 
 def test_update_date_is_validated_again(client, auth_headers):

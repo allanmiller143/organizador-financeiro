@@ -82,6 +82,8 @@ export type TransactionInput = {
   note: string | null
 }
 
+export type TransactionUpdate = Pick<TransactionInput, 'amount' | 'occurred_on' | 'note'>
+
 
 export type AccountSummary = {
   account_id: string
@@ -133,6 +135,17 @@ export type Simulation = {
 export type MonthlyYield = {
   month: string // "2025-01"
   yield_amount: string // "40.60"
+  net_yield_amount: string
+  gross_balance: string
+  net_balance: string
+  reapplications: Reapplication[]
+}
+
+export type Reapplication = {
+  occurred_on: string
+  gross_yield: string
+  tax_paid: string
+  amount: string
 }
 
 export type MonthlyYields = {

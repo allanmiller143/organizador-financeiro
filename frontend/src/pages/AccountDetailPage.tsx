@@ -6,7 +6,11 @@ import { AccountHeader } from '../components/accounts_detail/AccountHeader'
 import { ErrorMessage } from '../components/ErrorMessage'
 import { LoadingState } from '../components/LoadingState'
 import { useAccount, useAccountSummary, useMonthlyYields } from '../hooks/useAccounts'
-import { useDeleteTransaction, useTransactions } from '../hooks/useTransactions'
+import {
+  useDeleteTransaction,
+  useTransactions,
+  useUpdateTransaction,
+} from '../hooks/useTransactions'
 import { describeError } from '../lib/errors'
 import { SummaryCards } from '../components/accounts_detail/SummaryCards'
 import { HistoryCard } from '../components/accounts_detail/HistoryCard'
@@ -22,6 +26,7 @@ export default function AccountDetailPage() {
   const monthly = useMonthlyYields(accountId)
   const transactions = useTransactions(accountId)
   const deleteTransaction = useDeleteTransaction(accountId)
+  const updateTransaction = useUpdateTransaction(accountId)
   const [showTransactionForm, setShowTransactionForm] = useState(false)
 
   // Carregando ou não encontrada: a página nem chega a mostrar o resto.
@@ -59,7 +64,10 @@ export default function AccountDetailPage() {
 
       <HistoryCard
         transactions={transactions}
+        monthly={monthly}
         deleteTransaction={deleteTransaction}
+        updateTransaction={updateTransaction}
+        openedOn={data.opened_on}
         onNew={() => setShowTransactionForm(true)}
       />
 

@@ -11,7 +11,7 @@ function toNumber(value?: string | null): number | null {
 }
 
 export function AccountCharts({ monthly }: { monthly: MonthlyQuery }) {
-  const months = (monthly.data?.months ?? []) as MonthPoint[]
+  const months: MonthPoint[] = monthly.data?.months ?? []
 
   const yieldPoints: BarPoint[] = months.map((month) => ({
     label: formatMonth(month.month),
@@ -49,7 +49,7 @@ export function AccountCharts({ monthly }: { monthly: MonthlyQuery }) {
         points={balancePoints}
         loading={loading}
         error={error}
-        emptyMessage="Em breve: a evolução do saldo mês a mês aparece aqui."
+        emptyMessage="A evolução do saldo aparecerá aqui quando houver movimentações."
         gradientId="balanceBars"
         colors={['#818cf8', '#38bdf8']}
         tooltipLabel="Saldo"

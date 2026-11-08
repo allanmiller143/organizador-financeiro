@@ -1,4 +1,4 @@
-from decimal import Decimal
+from decimal import Decimal, ROUND_HALF_UP
 
 from app.services.projection_engine import run_projection
 
@@ -73,3 +73,23 @@ def test_tax_rate_drops_after_six_months():
     last = result.points[-1]  # mês 7: 210 dias, faixa de 20%
     expected_yield = Decimal("1000") * Decimal("1.01") ** 7 - Decimal("1000")
     assert last.tax_estimated == expected_yield * Decimal("0.20")
+
+
+def test_matured_projection_lot_pays_tax_and_restarts_at_month_24():
+    result = project(initial_amount=Decimal("1000"), horizon_months=25)
+
+    gross_at_maturity = Decimal("1000") * (1 + RATE) ** 24
+    tax = ((gross_at_maturity - Decimal("1000")) * Decimal("0.15")).quantize(
+        Decimal("0.01"), rounding=ROUND_HALF_UP
+    )
+    reinvested = (gross_at_maturity - tax).quantize(
+        Decimal("0.01"), rounding=ROUND_HALF_UP
+    )
+
+    maturity = result.points[23]
+    next_month = result.points[24]
+    assert maturity.gross_balance == reinvested
+    assert maturity.invested == Decimal("1000")
+    assert maturity.tax_paid == tax
+    assert next_month.gross_balance == reinvested * (1 + RATE)
+    assert next_month.invested == Decimal("1000")

@@ -1,5 +1,5 @@
 import { api } from './client'
-import type { Transaction, TransactionInput } from './types'
+import type { Transaction, TransactionInput, TransactionUpdate } from './types'
 
 export const transactionsApi = {
   // O histórico de uma caixinha (o backend já devolve do mais novo para o mais antigo).
@@ -11,6 +11,11 @@ export const transactionsApi = {
   create: (accountId: string, data: TransactionInput) =>
     api
       .post<{ transaction: Transaction }>(`/accounts/${accountId}/transactions`, data)
+      .then((r) => r.transaction),
+
+  update: (transactionId: string, data: TransactionUpdate) =>
+    api
+      .patch<{ transaction: Transaction }>(`/transactions/${transactionId}`, data)
       .then((r) => r.transaction),
 
   // Repare: para apagar, o endereço usa o id da transação, sem a caixinha.

@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
 import { transactionsApi } from '../api/transactions'
-import type { TransactionInput } from '../api/types'
+import type { TransactionInput, TransactionUpdate } from '../api/types'
 
 // LER: o histórico de uma caixinha.
 export function useTransactions(accountId: string) {
@@ -38,6 +38,15 @@ export function useDeleteTransaction(accountId: string) {
   const refresh = useRefreshAfterChange(accountId)
   return useMutation({
     mutationFn: transactionsApi.remove,
+    onSuccess: refresh,
+  })
+}
+
+export function useUpdateTransaction(accountId: string) {
+  const refresh = useRefreshAfterChange(accountId)
+  return useMutation({
+    mutationFn: ({ id, data }: { id: string; data: TransactionUpdate }) =>
+      transactionsApi.update(id, data),
     onSuccess: refresh,
   })
 }

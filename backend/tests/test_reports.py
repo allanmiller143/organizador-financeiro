@@ -134,3 +134,7 @@ def test_monthly_yields(client, auth_headers):
     assert len(months) == 1
     assert months[0]["month"] == "2025-01"
     assert Decimal(months[0]["yield_amount"]) == Decimal("40.60")
+    assert Decimal(months[0]["net_yield_amount"]) == Decimal("31.47")
+    assert Decimal(months[0]["gross_balance"]) == Decimal("1040.60")
+    assert Decimal(months[0]["net_balance"]) == Decimal("1031.47")
+    assert months[0]["reapplications"] == []

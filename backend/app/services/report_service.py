@@ -11,12 +11,15 @@ from app.errors import AppError
 from app.extensions import db
 from app.models import Account, CdiRate, Transaction, TransactionKind
 from app.services import account_service, cdi_service
-from app.services.tax_engine import InsufficientBalanceError, TaxSummary, simulate_lots
+from app.services.tax_engine import (
+    InsufficientBalanceError,
+    TaxSummary,
+    monthly_lot_balances,
+    simulate_lots,
+)
 from app.services.yield_engine import (
     CdiCoverageError,
     Flow,
-    monthly_yields,
-    simulate,
     to_cents,
 )
 
@@ -127,13 +130,38 @@ def account_summary(user_id: uuid.UUID, account_id: uuid.UUID) -> dict:
 def account_monthly_yields(user_id: uuid.UUID, account_id: uuid.UUID) -> dict:
     ctx = _prepare(user_id, account_id)
     with _engine_errors():
-        points = simulate(
+        balances = monthly_lot_balances(
             ctx.flows, ctx.rates, ctx.account.cdi_percent, ctx.start, ctx.end
         )
-    months = [
-        {"month": month, "yield_amount": to_cents(value)}
-        for month, value in monthly_yields(points)
-    ]
+    # Net yield includes taxes accrued during the month and taxes paid on withdrawals.
+    previous_estimated_tax = Decimal("0")
+    previous_paid_tax = Decimal("0")
+    months = []
+    for balance in balances:
+        yield_amount = balance.yield_amount
+        net_yield_amount = yield_amount - (
+            balance.tax_estimated - previous_estimated_tax
+        ) - (balance.tax_paid - previous_paid_tax)
+        months.append(
+            {
+                "month": balance.month,
+                "yield_amount": to_cents(yield_amount),
+                "net_yield_amount": to_cents(net_yield_amount),
+                "gross_balance": to_cents(balance.gross_balance),
+                "net_balance": to_cents(balance.net_balance),
+                "reapplications": [
+                    {
+                        "occurred_on": event.occurred_on,
+                        "gross_yield": to_cents(event.gross_yield),
+                        "tax_paid": event.tax_paid,
+                        "amount": event.amount,
+                    }
+                    for event in balance.reapplications
+                ],
+            }
+        )
+        previous_estimated_tax = balance.tax_estimated
+        previous_paid_tax = balance.tax_paid
     return {"account_id": ctx.account.id, "as_of": ctx.end, "months": months}
 
 

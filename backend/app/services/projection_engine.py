@@ -1,7 +1,11 @@
 from dataclasses import dataclass
 from decimal import Decimal
 
-from app.services.tax_engine import ir_rate
+from app.services.tax_engine import (
+    ROLLOVER_AGE_MONTHS,
+    ir_rate,
+    settle_matured_lot,
+)
 
 DAYS_PER_MONTH = 30  # aproximação: só para calcular a idade de cada aporte no imposto
 CENT_TOLERANCE = Decimal("0.005")  # meio centavo
@@ -14,6 +18,7 @@ class _Lot:
     start_day: int
     principal: Decimal
     value: Decimal
+    invested: Decimal
 
 
 @dataclass(frozen=True)
@@ -48,8 +53,10 @@ def _withdraw(lots: list[_Lot], amount: Decimal, day: int) -> tuple[Decimal, Dec
             break
         take = min(remaining, lot.value)
         principal_out = lot.principal * (take / lot.value)  # tira aportado e rendimento na mesma proporção
+        invested_out = lot.invested * (take / lot.value)
         tax += (take - principal_out) * ir_rate(day - lot.start_day)
         lot.principal -= principal_out
+        lot.invested -= invested_out
         lot.value -= take
         remaining -= take
     lots[:] = [lot for lot in lots if lot.value > CENT_TOLERANCE]  # descarta lotes zerados
@@ -68,7 +75,14 @@ def run_projection(
     """Anda mês a mês: rende, recebe o aporte e (se for a hora) faz a retirada."""
     lots: list[_Lot] = []
     if initial_amount > 0:
-        lots.append(_Lot(start_day=0, principal=initial_amount, value=initial_amount))
+        lots.append(
+            _Lot(
+                start_day=0,
+                principal=initial_amount,
+                value=initial_amount,
+                invested=initial_amount,
+            )
+        )
 
     tax_paid = Decimal("0")
     withdrawn = Decimal("0")
@@ -84,7 +98,14 @@ def run_projection(
 
         # 2) entra o aporte do mês (começa a render no mês seguinte)
         if monthly_deposit > 0:
-            lots.append(_Lot(start_day=day, principal=monthly_deposit, value=monthly_deposit))
+            lots.append(
+                _Lot(
+                    start_day=day,
+                    principal=monthly_deposit,
+                    value=monthly_deposit,
+                    invested=monthly_deposit,
+                )
+            )
 
         # 3) sai a retirada do mês
         if monthly_withdrawal > 0 and month >= withdrawal_start_month:
@@ -94,9 +115,27 @@ def run_projection(
             if taken < monthly_withdrawal - CENT_TOLERANCE and depleted_month is None:
                 depleted_month = month
 
+        remaining_lots = []
+        for lot in lots:
+            if day - lot.start_day < ROLLOVER_AGE_MONTHS * DAYS_PER_MONTH:
+                remaining_lots.append(lot)
+                continue
+            tax, reinvested = settle_matured_lot(lot.principal, lot.value)
+            tax_paid += tax
+            if reinvested > CENT_TOLERANCE:
+                remaining_lots.append(
+                    _Lot(
+                        start_day=day,
+                        principal=reinvested,
+                        value=reinvested,
+                        invested=lot.invested,
+                    )
+                )
+        lots = remaining_lots
+
         # 4) tira o retrato do fim do mês
         gross = sum((lot.value for lot in lots), Decimal("0"))
-        invested = sum((lot.principal for lot in lots), Decimal("0"))
+        invested = sum((lot.invested for lot in lots), Decimal("0"))
         estimated = sum(
             ((lot.value - lot.principal) * ir_rate(day - lot.start_day) for lot in lots),
             Decimal("0"),

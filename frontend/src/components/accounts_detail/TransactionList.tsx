@@ -1,24 +1,51 @@
-import { ArrowDownLeft, ArrowUpRight, Trash2 } from 'lucide-react'
+import { ArrowDownLeft, ArrowUpRight, Pencil, RotateCcw, Trash2 } from 'lucide-react'
 
 import type { Transaction } from '../../api/types'
 import { formatDate, formatMoney } from '../../lib/format'
+import type { HistoryEntry } from './types'
 
 type TransactionListProps = {
-  transactions: Transaction[]
+  entries: HistoryEntry[]
   onDelete: (transaction: Transaction) => void
+  onEdit: (transaction: Transaction) => void
   disabled: boolean // true enquanto algo está sendo apagado
 }
 
-export function TransactionList({ transactions, onDelete, disabled }: TransactionListProps) {
+export function TransactionList({ entries, onDelete, onEdit, disabled }: TransactionListProps) {
   return (
     <ul className="-mx-2 space-y-0.5">
-      {transactions.map((transaction) => {
+      {entries.map((entry) => {
+        if (entry.type === 'reapplication') {
+          const event = entry.reapplication
+          return (
+            <li
+              key={entry.id}
+              className="flex items-center gap-3 rounded-xl px-2 py-2.5 transition hover:bg-slate-50"
+            >
+              <span className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-indigo-50 text-indigo-600">
+                <RotateCcw size={18} />
+              </span>
+              <div className="min-w-0 flex-1">
+                <p className="text-sm font-medium text-slate-900">Reaplicação automática</p>
+                <p className="text-xs leading-relaxed text-slate-500">
+                  {formatDate(event.occurred_on)} · Rendeu {formatMoney(event.gross_yield)} · IR{' '}
+                  {formatMoney(event.tax_paid)} · Reinvestido {formatMoney(event.amount)}
+                </p>
+              </div>
+              <span className="shrink-0 text-sm font-semibold tabular-nums text-indigo-700">
+                + {formatMoney(event.amount)}
+              </span>
+            </li>
+          )
+        }
+
+        const transaction = entry.transaction
         const isDeposit = transaction.kind === 'DEPOSIT'
         const Icon = isDeposit ? ArrowDownLeft : ArrowUpRight
 
         return (
           <li
-            key={transaction.id}
+            key={entry.id}
             className="flex items-center gap-3 rounded-xl px-2 py-2.5 transition hover:bg-slate-50"
           >
             <span
@@ -47,6 +74,15 @@ export function TransactionList({ transactions, onDelete, disabled }: Transactio
               {isDeposit ? '+' : '−'} {formatMoney(transaction.amount)}
             </span>
 
+            <button
+              onClick={() => onEdit(transaction)}
+              disabled={disabled}
+              aria-label={isDeposit ? 'Editar aporte' : 'Editar retirada'}
+              title={isDeposit ? 'Editar aporte' : 'Editar retirada'}
+              className="grid h-9 w-9 shrink-0 cursor-pointer place-items-center rounded-lg text-slate-400 transition hover:bg-teal-50 hover:text-teal-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-400 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              <Pencil size={16} />
+            </button>
             <button
               onClick={() => onDelete(transaction)}
               disabled={disabled}

@@ -16,9 +16,20 @@ class SummaryOut(BaseModel):
     tax_paid: Decimal
 
 
+class ReapplicationOut(BaseModel):
+    occurred_on: date
+    gross_yield: Decimal
+    tax_paid: Decimal
+    amount: Decimal
+
+
 class MonthlyYield(BaseModel):
     month: str
     yield_amount: Decimal
+    net_yield_amount: Decimal
+    gross_balance: Decimal
+    net_balance: Decimal
+    reapplications: list[ReapplicationOut]
 
 
 class MonthlyYieldsOut(BaseModel):
