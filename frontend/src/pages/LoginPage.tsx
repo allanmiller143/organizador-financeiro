@@ -1,7 +1,7 @@
 import { useState, type FormEvent } from 'react'
 import { Link } from 'react-router-dom'
 import { Mail } from 'lucide-react'
-import { AuthLayout } from '../components/AuthLayout'
+import { AuthLayout } from '../components/layout/AuthLayout'
 import { Button } from '../components/Button'
 import { TextField } from '../components/TextField'
 import { useAuth } from '../hooks/useAuth'
