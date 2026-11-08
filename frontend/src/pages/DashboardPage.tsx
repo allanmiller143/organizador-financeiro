@@ -1,6 +1,7 @@
 import { ApiError } from '../api/client'
 import { StatCard } from '../components/StatCard'
 import { useDashboard } from '../hooks/useDashboard'
+import { Link } from 'react-router-dom'
 import { formatDate, formatMoney, formatPercent } from '../lib/format'
 
 // Transforma o erro técnico numa frase que ajuda a pessoa.
@@ -59,9 +60,13 @@ export default function DashboardPage() {
         {/* ESTADO 3: vazio */}
         {accounts.length === 0 ? (
           <p className="mt-4 text-sm text-slate-500">
-            Você ainda não tem caixinhas. Na próxima etapa vamos criar a tela para cadastrá-las.
-          </p>
-        ) : (
+            Você ainda não tem caixinhas.{' '}
+            <Link to="/caixinhas" className="font-medium text-emerald-700 hover:underline">
+                Cadastre a primeira
+            </Link>
+            .
+            </p>
+          ) : (
           /* ESTADO 4: com dados */
           <ul className="mt-4 divide-y divide-slate-100">
             {accounts.map((account) => (

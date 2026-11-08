@@ -16,3 +16,8 @@ export function formatDate(iso: string): string {
   const [year, month, day] = iso.split('-')
   return `${day}/${month}/${year}`
 }
+
+export function formatCdi(value: string): string {
+  const number = Number(value).toLocaleString('pt-BR', { maximumFractionDigits: 2 })
+  return `${number}% do CDI`
+}

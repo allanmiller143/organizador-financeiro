@@ -47,3 +47,19 @@ export type Dashboard = {
   totals: DashboardTotals
   accounts: DashboardAccount[]
 }
+
+export type Account = {
+  id: string
+  name: string
+  institution: string
+  cdi_percent: string 
+  opened_on: string 
+  is_active: boolean
+}
+
+export type AccountInput = {
+  name: string
+  institution: string
+  cdi_percent: string
+  opened_on: string
+}

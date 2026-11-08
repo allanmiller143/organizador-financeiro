@@ -4,6 +4,7 @@ import { AppLayout } from './components/AppLayout'
 import DashboardPage from './pages/DashboardPage'
 import LoginPage from './pages/LoginPage'
 import RegisterPage from './pages/RegisterPage'
+import AccountsPage from './pages/AccountsPage'
 import { ProtectedRoute, PublicOnlyRoute } from './routes/guards'
 
 export default function App() {
@@ -19,6 +20,7 @@ export default function App() {
       <Route element={<ProtectedRoute />}>
         <Route element={<AppLayout />}>
           <Route path="/" element={<DashboardPage />} />
+          <Route path="/caixinhas" element={<AccountsPage />} />
         </Route>
       </Route>
 
