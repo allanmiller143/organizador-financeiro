@@ -1,11 +1,11 @@
 import { useState, type FormEvent } from 'react'
 import { Link } from 'react-router-dom'
 
-import { AuthLayout } from '../components/layout/AuthLayout'
-import { Button } from '../components/Button'
-import { TextField } from '../components/TextField'
-import { useAuth } from '../hooks/useAuth'
-import { noErrors, toFormErrors } from '../lib/errors'
+import { AuthLayout } from '../../components/layout/AuthLayout'
+import { Button } from '../../components/Button'
+import { TextField } from '../../components/TextField'
+import { useAuth } from '../../hooks/useAuth'
+import { noErrors, toFormErrors } from '../../lib/errors'
 
 export default function RegisterPage() {
   const { register } = useAuth()

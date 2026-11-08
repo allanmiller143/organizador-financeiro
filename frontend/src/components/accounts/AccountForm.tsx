@@ -1,9 +1,10 @@
 import { useState, type FormEvent } from 'react'
 
-import { useCreateAccount } from '../hooks/useAccounts'
-import { noErrors, toFormErrors } from '../lib/errors'
-import { Button } from './Button'
-import { Field } from './Field'
+import { useCreateAccount } from '../../hooks/useAccounts'
+import { noErrors, toFormErrors } from '../../lib/errors'
+import { Button } from '../Button'
+import { ErrorMessage } from '../ErrorMessage'
+import { Field } from '../Field'
 
 type AccountFormProps = {
   onDone: () => void // o que fazer quando terminar (a tela fecha o formulário)
@@ -37,7 +38,7 @@ export function AccountForm({ onDone, onCancel }: AccountFormProps) {
   }
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-4">
+    <form onSubmit={handleSubmit} className="space-y-5">
       <div className="grid gap-4 sm:grid-cols-2">
         <Field
           label="Nome da caixinha"
@@ -64,6 +65,7 @@ export function AccountForm({ onDone, onCancel }: AccountFormProps) {
           min="0.01"
           max="500"
           step="0.01"
+          hint="100% significa que rende o mesmo que o CDI."
           value={cdiPercent}
           onChange={(e) => setCdiPercent(e.target.value)}
           error={errors.fields.cdi_percent}
@@ -79,19 +81,15 @@ export function AccountForm({ onDone, onCancel }: AccountFormProps) {
         />
       </div>
 
-      {errors.general && <p className="text-sm text-red-600">{errors.general}</p>}
+      {errors.general && <ErrorMessage message={errors.general} />}
 
-      <div className="flex items-center gap-4">
-        <Button type="submit" loading={createAccount.isPending}>
+      <div className="flex items-center gap-3">
+        <Button type="submit" variant="primary" loading={createAccount.isPending}>
           Salvar caixinha
         </Button>
-        <button
-          type="button"
-          onClick={onCancel}
-          className="text-sm text-slate-600 hover:text-slate-900"
-        >
+        <Button type="button" variant="secondary" onClick={onCancel}>
           Cancelar
-        </button>
+        </Button>
       </div>
     </form>
   )
