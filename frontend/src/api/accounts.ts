@@ -1,5 +1,5 @@
 import { api } from './client'
-import type { Account, AccountInput, AccountSummary, MonthlyYields } from './types'
+import type { Account, AccountInput, AccountSummary, AccountUpdate, MonthlyYields } from './types'
 
 export const accountsApi = {
   // O backend devolve { accounts: [...] }; entregamos só a lista.
@@ -23,4 +23,7 @@ export const accountsApi = {
     api
       .get<{ monthly_yields: MonthlyYields }>(`/accounts/${id}/monthly-yields`)
       .then((r) => r.monthly_yields),
+
+  update: (id: string, data: AccountUpdate) =>
+    api.patch<{ account: Account }>(`/accounts/${id}`, data).then((r) => r.account),
 }

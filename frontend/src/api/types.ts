@@ -140,3 +140,9 @@ export type MonthlyYields = {
   as_of: string
   months: MonthlyYield[]
 }
+
+export type AccountUpdate = {
+  name?: string
+  institution?: string
+  is_active?: boolean
+}

@@ -125,3 +125,35 @@ def test_dashboard_works_when_cdi_source_is_down(app, client, auth_headers, monk
     response = get_dashboard(client, auth_headers)
 
     assert response.status_code == 200
+
+
+def archive(client, headers, account_id):
+    return client.patch(
+        f"/api/accounts/{account_id}", json={"is_active": False}, headers=headers
+    )
+
+
+def test_dashboard_ignores_archived_accounts(client, auth_headers):
+    add_cdi(15, 16, 17, 20, 21)
+    a = new_account(client, auth_headers, "A")
+    b = new_account(client, auth_headers, "B")
+    deposit(client, auth_headers, a, "1000.00")
+    deposit(client, auth_headers, b, "3000.00")
+    archive(client, auth_headers, b)
+
+    body = get_dashboard(client, auth_headers).get_json()["dashboard"]
+
+    assert [acc["name"] for acc in body["accounts"]] == ["A"]
+    assert Decimal(body["totals"]["gross_balance"]) == Decimal("1040.60")
+
+
+def test_archived_account_still_has_its_own_summary(client, auth_headers):
+    add_cdi(15, 16, 17, 20, 21)
+    a = new_account(client, auth_headers, "A")
+    deposit(client, auth_headers, a, "1000.00")
+    archive(client, auth_headers, a)
+
+    response = client.get(f"/api/accounts/{a}/summary", headers=auth_headers)
+
+    assert response.status_code == 200
+    assert Decimal(response.get_json()["summary"]["gross_balance"]) == Decimal("1040.60")

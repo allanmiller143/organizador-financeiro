@@ -1,5 +1,4 @@
 import { Link, useParams } from 'react-router-dom'
-
 import { MonthlyYieldsChart } from '../components/MonthlyYieldsChart'
 import { StatCard } from '../components/StatCard'
 import { TransactionForm } from '../components/TransactionForm'
@@ -7,7 +6,8 @@ import { TransactionList } from '../components/TransactionList'
 import { useAccount, useAccountSummary, useMonthlyYields } from '../hooks/useAccounts'
 import { useDeleteTransaction, useTransactions } from '../hooks/useTransactions'
 import { describeError } from '../lib/errors'
-import { formatCdi, formatDate, formatMoney } from '../lib/format'
+import { formatDate, formatMoney } from '../lib/format'
+import { AccountHeader } from '../api/AccountHeader'
 
 export default function AccountDetailPage() {
   // Lê a parte variável do endereço: /caixinhas/:accountId
@@ -43,16 +43,7 @@ export default function AccountDetailPage() {
 
   return (
     <div className="space-y-8">
-      <div>
-        <Link to="/caixinhas" className="text-sm text-slate-500 hover:text-slate-900">
-          ← Caixinhas
-        </Link>
-        <h1 className="mt-2 text-2xl font-semibold">{data.name}</h1>
-        <p className="mt-1 text-sm text-slate-500">
-          {data.institution} · {formatCdi(data.cdi_percent)} · aberta em {formatDate(data.opened_on)}
-        </p>
-      </div>
-
+      <AccountHeader account={data} />
       {/* RESUMO: o resultado do motor de cálculo do backend */}
       <section className="space-y-3">
         {summary.isPending && <p className="text-slate-500">Calculando o resumo...</p>}

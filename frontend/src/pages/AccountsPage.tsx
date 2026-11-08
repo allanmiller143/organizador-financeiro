@@ -1,23 +1,68 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
+
 import { ApiError } from '../api/client'
+import type { Account } from '../api/types'
 import { AccountForm } from '../components/AccountForm'
 import { Button } from '../components/Button'
 import { useAccounts, useDeleteAccount } from '../hooks/useAccounts'
-import { formatCdi, formatDate } from '../lib/format'
+import { useDashboard } from '../hooks/useDashboard'
+import { formatCdi, formatDate, formatMoney } from '../lib/format'
+
+type AccountRowProps = {
+  account: Account
+  balance?: string // o saldo bruto, se já foi calculado
+  onDelete: () => void
+  disabled: boolean
+}
+
+// Uma linha da lista. Fica neste arquivo porque só esta página a usa.
+function AccountRow({ account, balance, onDelete, disabled }: AccountRowProps) {
+  return (
+    <li className="flex items-center justify-between gap-4 p-5">
+      <div>
+        <Link to={`/caixinhas/${account.id}`} className="font-medium hover:underline">
+          {account.name}
+        </Link>
+        <p className="text-xs text-slate-500">
+          {account.institution} · {formatCdi(account.cdi_percent)} · aberta em{' '}
+          {formatDate(account.opened_on)}
+        </p>
+      </div>
+      <div className="flex items-center gap-4">
+        {account.is_active && (
+          <span className="font-medium tabular-nums">{balance ? formatMoney(balance) : '—'}</span>
+        )}
+        <button
+          onClick={onDelete}
+          disabled={disabled}
+          className="text-sm text-red-600 hover:text-red-800 disabled:opacity-50"
+        >
+          Apagar
+        </button>
+      </div>
+    </li>
+  )
+}
 
 export default function AccountsPage() {
   const { data: accounts, isPending, isError, error } = useAccounts()
+  const dashboard = useDashboard() // de onde vem o saldo de cada caixinha
   const deleteAccount = useDeleteAccount()
   const [showForm, setShowForm] = useState(false)
 
-  function handleDelete(id: string, name: string) {
-    // window.confirm abre a caixinha de "tem certeza?" do navegador.
+  // Um "dicionário": id da caixinha -> saldo bruto.
+  const balances = new Map(dashboard.data?.accounts.map((a) => [a.account_id, a.gross_balance]))
+
+  function handleDelete(account: Account) {
     const confirmed = window.confirm(
-      `Apagar a caixinha "${name}"? Todas as transações dela também serão apagadas.`,
+      `Apagar a caixinha "${account.name}"? Todas as transações dela também serão apagadas.`,
     )
-    if (confirmed) deleteAccount.mutate(id)
+    if (confirmed) deleteAccount.mutate(account.id)
   }
+
+  const active = accounts?.filter((a) => a.is_active) ?? []
+  const archived = accounts?.filter((a) => !a.is_active) ?? []
 
   return (
     <div className="space-y-6">
@@ -57,29 +102,34 @@ export default function AccountsPage() {
       )}
 
       {/* ESTADO 4: com dados */}
-      {accounts && accounts.length > 0 && (
+      {active.length > 0 && (
         <ul className="divide-y divide-slate-100 rounded-2xl bg-white shadow-sm ring-1 ring-slate-200">
-          {accounts.map((account) => (
-            <li key={account.id} className="flex items-center justify-between gap-4 p-5">
-              <div>
-                <Link to={`/caixinhas/${account.id}`} className="font-medium hover:underline">
-                    {account.name}
-                </Link>
-                <p className="text-xs text-slate-500">
-                  {account.institution} · {formatCdi(account.cdi_percent)} · aberta em{' '}
-                  {formatDate(account.opened_on)}
-                </p>
-              </div>
-              <button
-                onClick={() => handleDelete(account.id, account.name)}
-                disabled={deleteAccount.isPending}
-                className="text-sm text-red-600 hover:text-red-800 disabled:opacity-50"
-              >
-                Apagar
-              </button>
-            </li>
+          {active.map((account) => (
+            <AccountRow
+              key={account.id}
+              account={account}
+              balance={balances.get(account.id)}
+              onDelete={() => handleDelete(account)}
+              disabled={deleteAccount.isPending}
+            />
           ))}
         </ul>
+      )}
+
+      {archived.length > 0 && (
+        <section className="space-y-3">
+          <h2 className="text-sm font-medium text-slate-500">Arquivadas</h2>
+          <ul className="divide-y divide-slate-100 rounded-2xl bg-white opacity-75 shadow-sm ring-1 ring-slate-200">
+            {archived.map((account) => (
+              <AccountRow
+                key={account.id}
+                account={account}
+                onDelete={() => handleDelete(account)}
+                disabled={deleteAccount.isPending}
+              />
+            ))}
+          </ul>
+        </section>
       )}
     </div>
   )

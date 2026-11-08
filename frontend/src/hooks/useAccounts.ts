@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-
+import type { AccountUpdate } from '../api/types'
 import { accountsApi } from '../api/accounts'
 
 // LER: a lista de caixinhas.
@@ -57,5 +57,14 @@ export function useMonthlyYields(id: string) {
     queryKey: ['monthly-yields', id],
     queryFn: () => accountsApi.monthlyYields(id),
     retry: false,
+  })
+}
+
+export function useUpdateAccount() {
+  const refresh = useRefreshAfterChange()
+  return useMutation({
+    mutationFn: ({ id, data }: { id: string; data: AccountUpdate }) =>
+      accountsApi.update(id, data),
+    onSuccess: refresh,
   })
 }

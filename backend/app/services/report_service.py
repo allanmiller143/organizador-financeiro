@@ -141,7 +141,8 @@ def dashboard(user_id: uuid.UUID) -> dict:
     cdi_service.ensure_fresh()
 
     results = []
-    for account in account_service.list_accounts(user_id):
+    active_accounts = [a for a in account_service.list_accounts(user_id) if a.is_active]
+    for account in active_accounts:
         ctx = _build_context(account)
         if ctx is None:
             raise AppError("O CDI ainda não foi sincronizado.", 409, "cdi_not_synced")
