@@ -6,7 +6,7 @@ from sqlalchemy import select
 from app.errors import AppError
 from app.extensions import db
 from app.models import Account, Transaction
-from app.services import account_service
+from app.services import account_service, report_service
 
 
 def _check_date(account: Account, occurred_on: date) -> None:
@@ -16,6 +16,16 @@ def _check_date(account: Account, occurred_on: date) -> None:
         raise AppError(
             "A data é anterior à abertura da caixinha.", 422, "date_before_opening"
         )
+
+
+def _commit_if_consistent(account: Account) -> None:
+    """Confere se o histórico continua válido (sem saldo negativo) antes de gravar."""
+    try:
+        report_service.ensure_consistent_history(account)
+    except AppError:
+        db.session.rollback()
+        raise
+    db.session.commit()
 
 
 def _get_transaction(user_id: uuid.UUID, transaction_id: uuid.UUID) -> Transaction:
@@ -57,7 +67,7 @@ def create_transaction(
 
     transaction = Transaction(account_id=account.id, **data)
     db.session.add(transaction)
-    db.session.commit()
+    _commit_if_consistent(account)
     return transaction
 
 
@@ -70,11 +80,12 @@ def update_transaction(
 
     for field, value in changes.items():
         setattr(transaction, field, value)
-    db.session.commit()
+    _commit_if_consistent(transaction.account)
     return transaction
 
 
 def delete_transaction(user_id: uuid.UUID, transaction_id: uuid.UUID) -> None:
     transaction = _get_transaction(user_id, transaction_id)
+    account = transaction.account
     db.session.delete(transaction)
-    db.session.commit()
+    _commit_if_consistent(account)

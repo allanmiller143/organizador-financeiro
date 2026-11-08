@@ -87,3 +87,20 @@ def list_rates(date_from: date | None = None, date_to: date | None = None) -> li
         .order_by(CdiRate.reference_date)
     )
     return list(db.session.scalars(stmt))
+
+
+STALE_AFTER_DAYS = 4  # tolera fim de semana somado a um feriado
+
+def ensure_fresh() -> None:
+    """Se o CDI estiver atrasado, tenta sincronizar na hora."""
+    if not current_app.config.get("CDI_AUTO_SYNC"):
+        return
+
+    last = db.session.scalar(select(func.max(CdiRate.reference_date)))
+    if last is not None and (date.today() - last).days <= STALE_AFTER_DAYS:
+        return
+
+    try:
+        sync_cdi()
+    except AppError:
+        current_app.logger.warning("CDI não atualizado; usando os dados já gravados.")
