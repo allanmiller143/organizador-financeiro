@@ -23,6 +23,10 @@ type RequestOptions = {
 
 let sessionExpiredHandler: (() => void) | null = null
 
+// Em desenvolvimento fica vazio e o proxy do Vite encaminha /api para o Flask.
+// Em produção, VITE_API_URL aponta para a URL pública do backend.
+const API_URL = (import.meta.env.VITE_API_URL ?? '').replace(/\/$/, '')
+
 export function setSessionExpiredHandler(handler: (() => void) | null) {
   sessionExpiredHandler = handler
 }
@@ -32,7 +36,7 @@ function send(path: string, options: RequestOptions, token: string | null) {
   if (options.body !== undefined) headers['Content-Type'] = 'application/json'
   if (token) headers.Authorization = `Bearer ${token}`
 
-  return fetch(`/api${path}`, {
+  return fetch(`${API_URL}/api${path}`, {
     method: options.method ?? 'GET',
     headers,
     body: options.body !== undefined ? JSON.stringify(options.body) : undefined,
