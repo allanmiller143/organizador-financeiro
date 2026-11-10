@@ -1,0 +1,182 @@
+# Organizador Financeiro
+
+Aplicação web para organizar caixinhas financeiras, registrar aportes e retiradas, acompanhar rendimento estimado, consultar detalhes por depósito e comparar a simulação com os dados reais das Caixinhas do Nubank.
+
+> **Importante:** este projeto é uma simulação educacional e de organização financeira. Ele não é o motor interno do Nubank, não representa uma cotação oficial da instituição e não deve ser usado como única fonte para decisões financeiras ou declarações fiscais.
+
+## Funcionalidades
+
+- Cadastro de caixinhas e definição do percentual do CDI.
+- Registro de aportes e retiradas.
+- Caixinhas com RDB imediato e RDB planejado/travado, quando aplicável.
+- Simulação de rendimento diário em dias úteis.
+- Cálculo estimado de IR e IOF.
+- Seleção do lote usado em uma retirada parcial.
+- Vencimento e reaplicação automática de aportes.
+- Histórico de aportes, retiradas e reaplicações.
+- Reordenação manual de lançamentos do mesmo dia.
+- Exportação simples do Histórico em CSV.
+- Exportação dos detalhes dos depósitos ainda ativos, com rendimento e tributos.
+- Sincronização do CDI diário pela série pública do Banco Central do Brasil.
+
+## Estrutura do projeto
+
+```text
+organizador-financeiro/
+├── backend/                 # API Flask, motor financeiro e migrações
+│   ├── app/
+│   ├── migrations/
+│   ├── tests/
+│   ├── requirements.txt
+│   └── wsgi.py
+├── frontend/                # Interface React + TypeScript + Vite
+├── docs/                    # Regras e documentação técnica
+├── docker-compose.yml       # PostgreSQL para desenvolvimento
+├── .env.example             # Variáveis do PostgreSQL local
+└── README.md
+```
+
+## Pré-requisitos
+
+- Python 3.11 ou mais recente.
+- Node.js 18 ou mais recente e npm.
+- Docker Desktop, para executar o PostgreSQL localmente.
+- Git, caso o projeto seja sincronizado com um repositório remoto.
+
+## Configuração do banco
+
+Na raiz do projeto, copie o exemplo de ambiente:
+
+```powershell
+Copy-Item .env.example .env
+```
+
+Edite o `.env` se quiser alterar usuário, senha ou nome do banco. O `docker-compose.yml` expõe o PostgreSQL na porta `5433` do computador:
+
+```powershell
+docker compose up -d db
+```
+
+Se aparecer um conflito com o nome `organizador_db`, verifique os containers existentes:
+
+```powershell
+docker ps -a
+```
+
+Se for um container antigo do mesmo projeto e não houver dados importantes nele, ele pode ser removido com:
+
+```powershell
+docker rm -f organizador_db
+```
+
+Depois, execute novamente `docker compose up -d db`.
+
+## Configuração do backend
+
+Entre na pasta do backend e crie um ambiente virtual:
+
+```powershell
+cd backend
+python -m venv .venv
+.\.venv\Scripts\Activate.ps1
+```
+
+Instale as dependências:
+
+```powershell
+python -m pip install -r requirements.txt
+```
+
+Copie ou crie `backend/.env` usando `backend/.env.example`. Um exemplo de configuração é:
+
+```env
+APP_ENV=development
+SECRET_KEY=troque-por-uma-chave-local
+DATABASE_URL=postgresql+psycopg://organizador:sua_senha@localhost:5433/organizador_financeiro
+```
+
+Aplique as migrações:
+
+```powershell
+flask --app wsgi db upgrade
+```
+
+Inicie a API:
+
+```powershell
+flask --app wsgi run --debug
+```
+
+A API ficará disponível em `http://127.0.0.1:5000`.
+
+## Configuração do frontend
+
+Abra outro terminal na raiz do projeto:
+
+```powershell
+cd frontend
+npm install
+npm run dev
+```
+
+Abra o endereço exibido pelo Vite, normalmente `http://localhost:5173`. O Vite encaminha as chamadas `/api` para o backend em `http://127.0.0.1:5000`.
+
+Para validar o frontend sem iniciar o servidor:
+
+```powershell
+npm run lint
+npm run build
+```
+
+## Testes do backend
+
+Com o ambiente virtual ativo:
+
+```powershell
+cd backend
+$env:APP_ENV="testing"
+python -m pytest -q
+```
+
+A suíte cobre calendário, CDI, rendimento, IR, IOF, retiradas, reaplicações, ordenação manual, relatórios e detalhes por depósito.
+
+## Fluxo de uso recomendado
+
+1. Crie uma conta de usuário e entre na aplicação.
+2. Cadastre a caixinha com o percentual correto do CDI.
+3. Cadastre os aportes e retiradas com as datas reais.
+4. Se houver vários lançamentos no mesmo dia, confira a ordem exibida.
+5. Arraste os itens do mesmo dia se a ordem real da operação for diferente.
+6. Compare o resumo, o Histórico e os detalhes dos depósitos com o Nubank.
+7. Use o CSV do Histórico para uma lista simples de `dia`, `operação` e `valor`.
+8. Use o CSV dos detalhes para conferir lotes ativos, rendimento bruto, IR, IOF e saques alocados.
+
+## Ordem dos lançamentos no mesmo dia
+
+Por padrão, o lançamento mais recente do mesmo dia aparece no topo do Histórico. Essa ordem também é usada pelo motor para desempates operacionais e é persistida no campo `sort_order`.
+
+A ordem pode ser alterada arrastando os cards. A ordem manual deve ser conferida depois da gravação, porque ela pode mudar a alocação de retiradas e reaplicações quando existem lotes equivalentes.
+
+## CDI e data de atualização
+
+O backend consulta a série diária 12 do SGS do Banco Central:
+
+```text
+https://api.bcb.gov.br/dados/serie/bcdata.sgs.12/dados
+```
+
+A série pública pode ficar alguns dias atrás do aplicativo do Nubank. O sistema não inventa uma taxa para os dias que ainda não foram publicados. Por isso, a tela pode informar que o cálculo está atualizado até a última data de CDI disponível, e não necessariamente até a data civil de hoje.
+
+## Segurança e arquivos `.env`
+
+Não publique os arquivos `.env` no GitHub. Eles podem conter senha do banco, `SECRET_KEY` ou outras credenciais. Mantenha somente os arquivos `.env.example` versionados.
+
+Se uma credencial já tiver sido enviada ao GitHub, apenas apagar o arquivo não é suficiente: troque a credencial e depois remova o segredo do histórico, se necessário.
+
+## Documentação técnica
+
+A explicação detalhada do motor, das fórmulas, das convenções descobertas e das limitações conhecidas está em:
+
+- [`docs/logica-do-motor-financeiro.md`](docs/logica-do-motor-financeiro.md)
+- [`docs/regras-das-caixinhas.md`](docs/regras-das-caixinhas.md)
+- [`docs/calibracao-referencia-2026.md`](docs/calibracao-referencia-2026.md)
