@@ -4,6 +4,8 @@ import { AppLayout } from './components/layout/AppLayout'
 import DashboardPage from './pages/DashboardPage'
 import LoginPage from './pages/auth/LoginPage'
 import RegisterPage from './pages/auth/RegisterPage'
+import ForgotPasswordPage from './pages/auth/ForgotPasswordPage'
+import ResetPasswordPage from './pages/auth/ResetPasswordPage'
 import AccountsPage from './pages/AccountsPage'
 import AccountDetailPage from './pages/AccountDetailPage'
 import { ProtectedRoute, PublicOnlyRoute } from './routes/guards'
@@ -16,6 +18,8 @@ export default function App() {
       <Route element={<PublicOnlyRoute />}>
         <Route path="/login" element={<LoginPage />} />
         <Route path="/register" element={<RegisterPage />} />
+        <Route path="/esqueci-senha" element={<ForgotPasswordPage />} />
+        <Route path="/redefinir-senha" element={<ResetPasswordPage />} />
       </Route>
 
       {/* Telas internas: só quem ESTÁ logado vê, todas dentro da moldura. */}

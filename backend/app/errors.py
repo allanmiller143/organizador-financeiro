@@ -57,3 +57,7 @@ def register_jwt_error_handlers(jwt: JWTManager) -> None:
     @jwt.expired_token_loader
     def expired_token(jwt_header, jwt_payload):
         return _error("token_expired", "Token expirado.", 401)
+
+    @jwt.revoked_token_loader
+    def revoked_token(jwt_header, jwt_payload):
+        return _error("token_revoked", "Sessão encerrada. Entre novamente.", 401)

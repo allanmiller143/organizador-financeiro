@@ -64,6 +64,12 @@ export default function LoginPage() {
             Lembrar de mim
         </label>
 
+        <p className="text-right text-sm">
+          <Link to="/esqueci-senha" className="text-white/90 underline-offset-4 hover:text-white hover:underline">
+            Esqueci minha senha
+          </Link>
+        </p>
+
         {errors.general && <p className="text-sm text-red-300">{errors.general}</p>}
 
         <Button type="submit" variant="glass" loading={submitting} className="w-full">
