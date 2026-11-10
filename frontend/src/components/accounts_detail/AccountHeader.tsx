@@ -123,7 +123,7 @@ export function AccountHeader({ account, summary, onNewTransaction }: AccountHea
                   <>
                     <span className="inline-flex items-center gap-1 rounded-full bg-white/25 px-2.5 py-1 text-xs font-semibold">
                       <TrendingUp size={14} />
-                      {yieldPercentLabel(data.invested, data.gross_yield)} de rendimento
+                      {yieldPercentLabel(data.invested, data.gross_yield)} sobre o valor aplicado
                     </span>
                     <span className="text-xs text-white/70">
                       Atualizado até {formatDate(data.as_of)}

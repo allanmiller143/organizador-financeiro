@@ -30,6 +30,8 @@ export type DashboardTotals = {
   tax_estimated: string 
   net_balance: string 
   tax_paid: string 
+  deposited_total: string
+  locked_balance: string
 }
 
 export type DashboardAccount = {
@@ -73,6 +75,10 @@ export type Transaction = {
   amount: string // texto, ex.: "1000.00"
   occurred_on: string // "AAAA-MM-DD"
   note: string | null
+  cdi_percent: string
+  term_months: number
+  locked: boolean
+  sort_order: number | null
 }
 
 export type TransactionInput = {
@@ -80,9 +86,15 @@ export type TransactionInput = {
   amount: string
   occurred_on: string
   note: string | null
+  cdi_percent: string
+  term_months: number
+  locked: boolean
 }
 
-export type TransactionUpdate = Pick<TransactionInput, 'amount' | 'occurred_on' | 'note'>
+export type TransactionUpdate = Pick<
+  TransactionInput,
+  'amount' | 'occurred_on' | 'note' | 'cdi_percent' | 'term_months' | 'locked'
+>
 
 
 export type AccountSummary = {
@@ -94,6 +106,10 @@ export type AccountSummary = {
   tax_estimated: string
   net_balance: string
   tax_paid: string
+  deposited_total: string
+  locked_balance: string
+  iof_paid: string // parte de tax_paid que foi IOF
+  iof_estimated: string // parte de tax_estimated que seria IOF
 }
 
 // O que enviamos para simular. Dinheiro como texto, como sempre.
@@ -138,6 +154,7 @@ export type MonthlyYield = {
   net_yield_amount: string
   gross_balance: string
   net_balance: string
+  invested: string // valor aplicado no fim do mês (sem rendimento nem reaplicações)
   reapplications: Reapplication[]
 }
 
@@ -146,12 +163,48 @@ export type Reapplication = {
   gross_yield: string
   tax_paid: string
   amount: string
+  source_transaction_id: string | null
 }
 
 export type MonthlyYields = {
   account_id: string
   as_of: string
   months: MonthlyYield[]
+}
+
+// Um resgate que saiu de um depósito (lote), com o imposto cobrado nele.
+export type DepositWithdrawal = {
+  occurred_on: string
+  amount: string
+  gross_yield: string
+  income_tax: string
+  iof: string
+  net_amount: string
+}
+
+export type DepositDetail = {
+  deposited_on: string
+  product: string // "RDB Resgate Imediato" ou "RDB Planejado"
+  applied_amount: string
+  principal_remaining: string
+  partial_withdrawals: string
+  gross_yield: string
+  income_tax: string
+  iof: string
+  iof_estimated: string
+  withdrawals: DepositWithdrawal[]
+  gross_balance: string
+  net_balance: string
+  maturity_on: string
+  locked: boolean
+  term_months: number
+  cdi_percent: string
+}
+
+export type DepositDetails = {
+  account_id: string
+  as_of: string
+  deposits: DepositDetail[]
 }
 
 export type AccountUpdate = {

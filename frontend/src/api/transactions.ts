@@ -18,6 +18,16 @@ export const transactionsApi = {
       .patch<{ transaction: Transaction }>(`/transactions/${transactionId}`, data)
       .then((r) => r.transaction),
 
+  reorder: (accountId: string, transactionIds: string[]) =>
+    api.patch<void>(`/accounts/${accountId}/transactions/order`, {
+      transaction_ids: transactionIds,
+    }),
+
+  reorderReapplications: (accountId: string, transactionIds: string[]) =>
+    api.patch<void>(`/accounts/${accountId}/reapplications/order`, {
+      transaction_ids: transactionIds,
+    }),
+
   // Repare: para apagar, o endereço usa o id da transação, sem a caixinha.
   remove: (transactionId: string) => api.delete<void>(`/transactions/${transactionId}`),
 }

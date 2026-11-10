@@ -41,14 +41,24 @@ class ProjectionResult:
 
 
 def _withdraw(lots: list[_Lot], amount: Decimal, day: int) -> tuple[Decimal, Decimal]:
-    """Retira dos lotes mais antigos primeiro.
+    """Retira primeiro dos lotes com menor imposto efetivo (empate: o mais novo).
 
+    É a mesma regra do motor real das caixinhas; não é FIFO.
     Devolve (quanto conseguiu retirar, imposto retido).
     Se o dinheiro não bastar, retira o que houver, e não dá erro.
     """
     remaining = amount
     tax = Decimal("0")
-    for lot in lots:
+    ordered = sorted(
+        lots,
+        key=lambda lot: (
+            ((lot.value - lot.principal) / lot.value) * ir_rate(day - lot.start_day)
+            if lot.value > 0
+            else Decimal("0"),
+            -lot.start_day,
+        ),
+    )
+    for lot in ordered:
         if remaining <= CENT_TOLERANCE:
             break
         take = min(remaining, lot.value)
@@ -92,11 +102,7 @@ def run_projection(
     for month in range(1, horizon_months + 1):
         day = month * DAYS_PER_MONTH
 
-        # 1) o dinheiro que já está lá rende
-        for lot in lots:
-            lot.value *= 1 + monthly_rate
-
-        # 2) entra o aporte do mês (começa a render no mês seguinte)
+        # 1) o aporte entra antes do rendimento do próprio mês
         if monthly_deposit > 0:
             lots.append(
                 _Lot(
@@ -106,6 +112,10 @@ def run_projection(
                     invested=monthly_deposit,
                 )
             )
+
+        # 2) todo o saldo rende no mês
+        for lot in lots:
+            lot.value *= 1 + monthly_rate
 
         # 3) sai a retirada do mês
         if monthly_withdrawal > 0 and month >= withdrawal_start_month:

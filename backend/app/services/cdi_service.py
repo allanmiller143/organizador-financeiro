@@ -9,6 +9,7 @@ from app.errors import AppError
 from app.extensions import db
 from app.models import Account, CdiRate
 from app.services.yield_engine import MAX_GAP_DAYS
+from app.services.calendar_br import today_brazil
 
 BCB_URL = "https://api.bcb.gov.br/dados/serie/bcdata.sgs.12/dados"
 WINDOW_DAYS = 365 * 5  # o Banco Central limita o tamanho da janela de consulta
@@ -42,7 +43,7 @@ def _default_start() -> date:
     if last is not None:
         return last + timedelta(days=1)
     first_account = db.session.scalar(select(func.min(Account.opened_on)))
-    return first_account or date(date.today().year - 1, 1, 1)
+    return first_account or date(today_brazil().year - 1, 1, 1)
 
 
 def _store_missing(rows: list[tuple[date, Decimal]]) -> int:
@@ -66,7 +67,7 @@ def _store_missing(rows: list[tuple[date, Decimal]]) -> int:
 
 def sync_cdi(start: date | None = None, end: date | None = None) -> int:
     """Grava no banco os dias de CDI que ainda faltam. Pode rodar quantas vezes quiser."""
-    end = end or date.today()
+    end = end or today_brazil()
     start = start or _default_start()
 
     inserted = 0
@@ -81,7 +82,7 @@ def sync_cdi(start: date | None = None, end: date | None = None) -> int:
 
 
 def list_rates(date_from: date | None = None, date_to: date | None = None) -> list[CdiRate]:
-    date_to = date_to or date.today()
+    date_to = date_to or today_brazil()
     date_from = date_from or date_to - timedelta(days=90)
     stmt = (
         select(CdiRate)
@@ -97,7 +98,7 @@ def ensure_fresh() -> None:
         return
 
     last = db.session.scalar(select(func.max(CdiRate.reference_date)))
-    if last is not None and (date.today() - last).days <= STALE_AFTER_DAYS:
+    if last is not None and (today_brazil() - last).days < STALE_AFTER_DAYS:
         return
 
     try:

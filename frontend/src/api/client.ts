@@ -97,6 +97,20 @@ export async function request<T>(path: string, options: RequestOptions = {}): Pr
   return (await response.json()) as T
 }
 
+export async function requestBlob(path: string): Promise<Blob> {
+  let response = await send(path, {}, tokens.getAccess())
+  if (response.status === 401) {
+    if (await refreshAccessToken()) {
+      response = await send(path, {}, tokens.getAccess())
+    } else {
+      tokens.clear()
+      sessionExpiredHandler?.()
+    }
+  }
+  if (!response.ok) throw await parseError(response)
+  return response.blob()
+}
+
 export const api = {
   get: <T>(path: string) => request<T>(path),
   post: <T>(path: string, body?: unknown) => request<T>(path, { method: 'POST', body }),

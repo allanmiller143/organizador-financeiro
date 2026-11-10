@@ -27,11 +27,11 @@ def test_initial_amount_grows_with_compound_interest():
     assert last.net_balance == Decimal("1023.483275")
 
 
-def test_monthly_deposits_start_earning_next_month():
+def test_monthly_deposits_start_earning_in_month():
     result = project(monthly_deposit=Decimal("100"))
 
     last = result.points[-1]
-    assert last.gross_balance == Decimal("303.01")  # 100 + 101 + 102,01 de aportes rendidos
+    assert last.gross_balance == Decimal("306.040100")  # 100 + 101 + 102,01 de aportes rendidos
     assert last.invested == Decimal("300")
 
 

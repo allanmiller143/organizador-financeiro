@@ -50,7 +50,7 @@ def test_dashboard_totals_and_shares(client, auth_headers):
     assert response.status_code == 200
     body = response.get_json()["dashboard"]
     assert body["as_of"] == "2025-01-21"
-    assert Decimal(body["totals"]["gross_balance"]) == Decimal("4162.42")  # 4000 x 1,01^4
+    assert Decimal(body["totals"]["gross_balance"]) == Decimal("4204.04")  # 4000 x 1,01^4 (o dia do depósito não rende)
     assert Decimal(body["totals"]["invested"]) == Decimal("4000.00")
     shares = {acc["name"]: Decimal(acc["share_percent"]) for acc in body["accounts"]}
     assert shares == {"A": Decimal("25.00"), "B": Decimal("75.00")}
@@ -77,7 +77,7 @@ def test_dashboard_only_counts_own_accounts(client, auth_headers, other_headers)
 
     body = response.get_json()["dashboard"]
     assert [acc["name"] for acc in body["accounts"]] == ["Minha"]
-    assert Decimal(body["totals"]["gross_balance"]) == Decimal("1040.60")
+    assert Decimal(body["totals"]["gross_balance"]) == Decimal("1051.01")
 
 
 def test_dashboard_without_cdi_returns_409(client, auth_headers):
@@ -144,7 +144,7 @@ def test_dashboard_ignores_archived_accounts(client, auth_headers):
     body = get_dashboard(client, auth_headers).get_json()["dashboard"]
 
     assert [acc["name"] for acc in body["accounts"]] == ["A"]
-    assert Decimal(body["totals"]["gross_balance"]) == Decimal("1040.60")
+    assert Decimal(body["totals"]["gross_balance"]) == Decimal("1051.01")
 
 
 def test_archived_account_still_has_its_own_summary(client, auth_headers):
@@ -156,4 +156,4 @@ def test_archived_account_still_has_its_own_summary(client, auth_headers):
     response = client.get(f"/api/accounts/{a}/summary", headers=auth_headers)
 
     assert response.status_code == 200
-    assert Decimal(response.get_json()["summary"]["gross_balance"]) == Decimal("1040.60")
+    assert Decimal(response.get_json()["summary"]["gross_balance"]) == Decimal("1051.01")

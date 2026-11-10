@@ -23,6 +23,7 @@ export function AccountCharts({ monthly }: { monthly: MonthlyQuery }) {
     label: formatMonth(month.month),
     gross: toNumber(month.gross_balance),
     net: toNumber(month.net_balance),
+    reference: toNumber(month.invested),
   }))
 
   const loading = monthly.isPending
@@ -45,7 +46,7 @@ export function AccountCharts({ monthly }: { monthly: MonthlyQuery }) {
       <BarsCard
         icon={BarChart3}
         title="Valor total"
-        subtitle="Quanto a caixinha valia no fim de cada mês"
+        subtitle="Quanto a caixinha valia no fim de cada mês, com o valor aplicado em linha"
         points={balancePoints}
         loading={loading}
         error={error}
@@ -53,6 +54,7 @@ export function AccountCharts({ monthly }: { monthly: MonthlyQuery }) {
         gradientId="balanceBars"
         colors={['#818cf8', '#38bdf8']}
         tooltipLabel="Saldo"
+        referenceLabel="Valor aplicado"
       />
     </div>
   )

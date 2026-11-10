@@ -5,10 +5,15 @@ import { TransactionForm } from '../TransactionForm'
 
 type NewTransactionCardProps = {
   accountId: string
+  accountCdiPercent: string
   openedOn: string
 }
 
-export function NewTransactionCard({ accountId, openedOn }: NewTransactionCardProps) {
+export function NewTransactionCard({
+  accountId,
+  accountCdiPercent,
+  openedOn,
+}: NewTransactionCardProps) {
   return (
     <InsightCard
       icon={Plus}
@@ -16,7 +21,11 @@ export function NewTransactionCard({ accountId, openedOn }: NewTransactionCardPr
       subtitle="Registre um aporte ou uma retirada"
     >
       <div className="mt-5">
-        <TransactionForm accountId={accountId} openedOn={openedOn} />
+        <TransactionForm
+          accountId={accountId}
+          accountCdiPercent={accountCdiPercent}
+          openedOn={openedOn}
+        />
       </div>
     </InsightCard>
   )

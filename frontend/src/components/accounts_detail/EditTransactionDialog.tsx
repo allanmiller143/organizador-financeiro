@@ -9,9 +9,12 @@ import { Button } from '../Button'
 import { Dialog } from '../Dialog'
 import { ErrorMessage } from '../ErrorMessage'
 import { Field } from '../Field'
+import { RateSelect } from './RateSelect'
+import { CUSTOM_LOCKED_RATE_KEY, optionKeyFor, rateOptions } from './rateOptions'
 
 type EditTransactionDialogProps = {
   transaction: Transaction | null
+  accountCdiPercent: string
   openedOn: string
   updateTransaction: UpdateTransactionMutation
   onClose: () => void
@@ -19,6 +22,7 @@ type EditTransactionDialogProps = {
 
 function EditTransactionForm({
   transaction,
+  accountCdiPercent,
   openedOn,
   updateTransaction,
   onClose,
@@ -26,15 +30,27 @@ function EditTransactionForm({
   const [amount, setAmount] = useState(transaction.amount)
   const [occurredOn, setOccurredOn] = useState(transaction.occurred_on)
   const [note, setNote] = useState(transaction.note ?? '')
+  const [rateKey, setRateKey] = useState(optionKeyFor(accountCdiPercent, transaction))
+  const [customCdiPercent, setCustomCdiPercent] = useState(transaction.cdi_percent)
   const [errors, setErrors] = useState(noErrors)
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
     setErrors(noErrors)
+    const options = rateOptions(accountCdiPercent)
+    const option = options.find((item) => item.key === rateKey) ?? options[0]
+    const isDeposit = transaction.kind === 'DEPOSIT'
     try {
       await updateTransaction.mutateAsync({
         id: transaction.id,
-        data: { amount, occurred_on: occurredOn, note: note.trim() || null },
+        data: {
+          amount,
+          occurred_on: occurredOn,
+          note: note.trim() || null,
+          cdi_percent: isDeposit ? (rateKey === CUSTOM_LOCKED_RATE_KEY ? customCdiPercent : option.cdiPercent) : accountCdiPercent,
+          term_months: isDeposit ? (rateKey === CUSTOM_LOCKED_RATE_KEY ? 6 : option.termMonths) : 24,
+          locked: isDeposit && (rateKey === CUSTOM_LOCKED_RATE_KEY || option.locked),
+        },
       })
       onClose()
     } catch (error) {
@@ -67,6 +83,16 @@ function EditTransactionForm({
           onChange={(event) => setOccurredOn(event.target.value)}
           error={errors.fields.occurred_on}
         />
+        {transaction.kind === 'DEPOSIT' && (
+          <RateSelect
+            id="edit_cdi_percent"
+            accountCdiPercent={accountCdiPercent}
+            value={rateKey}
+            onChange={setRateKey}
+            customCdiPercent={customCdiPercent}
+            onCustomCdiPercentChange={setCustomCdiPercent}
+          />
+        )}
         <div className="sm:col-span-2">
           <Field
             label="Observação (opcional)"
@@ -94,7 +120,7 @@ function EditTransactionForm({
 }
 
 export function EditTransactionDialog(props: EditTransactionDialogProps) {
-  const { transaction, openedOn, updateTransaction, onClose } = props
+  const { transaction, accountCdiPercent, openedOn, updateTransaction, onClose } = props
   const transactionLabel = transaction?.kind === 'DEPOSIT' ? 'aporte' : 'retirada'
   return (
     <Dialog
@@ -108,6 +134,7 @@ export function EditTransactionDialog(props: EditTransactionDialogProps) {
         <EditTransactionForm
           key={transaction.id}
           transaction={transaction}
+          accountCdiPercent={accountCdiPercent}
           openedOn={openedOn}
           updateTransaction={updateTransaction}
           onClose={onClose}

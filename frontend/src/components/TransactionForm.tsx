@@ -6,30 +6,41 @@ import { noErrors, toFormErrors } from '../lib/errors'
 import { todayIso } from '../lib/format'
 import { Button } from './Button'
 import { Field } from './Field'
+import { RateSelect } from './accounts_detail/RateSelect'
+import { CUSTOM_LOCKED_RATE_KEY, rateOptions } from './accounts_detail/rateOptions'
 
 type TransactionFormProps = {
   accountId: string
+  accountCdiPercent: string // rendimento padrão da caixinha (decide se pode trancar dinheiro)
   openedOn: string // a data não pode ser anterior à abertura da caixinha
 }
 
-export function TransactionForm({ accountId, openedOn }: TransactionFormProps) {
+export function TransactionForm({ accountId, accountCdiPercent, openedOn }: TransactionFormProps) {
   const createTransaction = useCreateTransaction(accountId)
 
   const [kind, setKind] = useState<TransactionKind>('DEPOSIT')
   const [amount, setAmount] = useState('')
   const [occurredOn, setOccurredOn] = useState(todayIso())
   const [note, setNote] = useState('')
+  const [rateKey, setRateKey] = useState('base')
+  const [customCdiPercent, setCustomCdiPercent] = useState(accountCdiPercent)
   const [errors, setErrors] = useState(noErrors)
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
     setErrors(noErrors)
+    const options = rateOptions(accountCdiPercent)
+    const option = options.find((item) => item.key === rateKey) ?? options[0]
+    const isDeposit = kind === 'DEPOSIT'
     try {
       await createTransaction.mutateAsync({
         kind,
         amount,
         occurred_on: occurredOn,
         note: note.trim() || null, // texto vazio vira "sem observação"
+        cdi_percent: isDeposit ? (rateKey === CUSTOM_LOCKED_RATE_KEY ? customCdiPercent : option.cdiPercent) : accountCdiPercent,
+        term_months: isDeposit ? (rateKey === CUSTOM_LOCKED_RATE_KEY ? 6 : option.termMonths) : 24,
+        locked: isDeposit && (rateKey === CUSTOM_LOCKED_RATE_KEY || option.locked),
       })
       // Deu certo: limpamos só valor e observação (tipo e data costumam se repetir).
       setAmount('')
@@ -80,6 +91,17 @@ export function TransactionForm({ accountId, openedOn }: TransactionFormProps) {
           onChange={(e) => setOccurredOn(e.target.value)}
           error={errors.fields.occurred_on}
         />
+
+        {kind === 'DEPOSIT' && (
+          <RateSelect
+            id="cdi_percent"
+            accountCdiPercent={accountCdiPercent}
+            value={rateKey}
+            onChange={setRateKey}
+            customCdiPercent={customCdiPercent}
+            onCustomCdiPercentChange={setCustomCdiPercent}
+          />
+        )}
 
         <Field
           label="Observação (opcional)"

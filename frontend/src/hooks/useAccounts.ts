@@ -7,6 +7,8 @@ export function useAccounts() {
   return useQuery({
     queryKey: ['accounts'],
     queryFn: accountsApi.list,
+    staleTime: 30_000,
+    placeholderData: (previousData) => previousData,
   })
 }
 
@@ -24,13 +26,13 @@ function useRefreshAfterChange() {
 // GRAVAR: criar uma caixinha.
 export function useCreateAccount() {
   const refresh = useRefreshAfterChange()
-  return useMutation({ mutationFn: accountsApi.create, onSuccess: refresh })
+  return useMutation({ mutationFn: accountsApi.create, onSuccess: () => { void refresh() } })
 }
 
 // GRAVAR: apagar uma caixinha.
 export function useDeleteAccount() {
   const refresh = useRefreshAfterChange()
-  return useMutation({ mutationFn: accountsApi.remove, onSuccess: refresh })
+  return useMutation({ mutationFn: accountsApi.remove, onSuccess: () => { void refresh() } })
 }
 
 // LER: uma caixinha só.
@@ -39,6 +41,8 @@ export function useAccount(id: string) {
     queryKey: ['accounts', id],
     queryFn: () => accountsApi.get(id),
     retry: false,
+    staleTime: 30_000,
+    placeholderData: (previousData) => previousData,
   })
 }
 
@@ -48,6 +52,8 @@ export function useAccountSummary(id: string) {
     queryKey: ['summary', id],
     queryFn: () => accountsApi.summary(id),
     retry: false,
+    staleTime: 30_000,
+    placeholderData: (previousData) => previousData,
   })
 }
 
@@ -57,6 +63,8 @@ export function useMonthlyYields(id: string) {
     queryKey: ['monthly-yields', id],
     queryFn: () => accountsApi.monthlyYields(id),
     retry: false,
+    staleTime: 30_000,
+    placeholderData: (previousData) => previousData,
   })
 }
 
@@ -65,6 +73,17 @@ export function useUpdateAccount() {
   return useMutation({
     mutationFn: ({ id, data }: { id: string; data: AccountUpdate }) =>
       accountsApi.update(id, data),
-    onSuccess: refresh,
+    onSuccess: () => { void refresh() },
+  })
+}
+
+export function useDepositDetails(id: string, enabled = true) {
+  return useQuery({
+    queryKey: ['deposit-details', id],
+    queryFn: () => accountsApi.depositDetails(id),
+    enabled,
+    retry: false,
+    staleTime: 30_000,
+    placeholderData: (previousData) => previousData,
   })
 }

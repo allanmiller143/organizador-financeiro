@@ -3,7 +3,7 @@ import uuid
 from datetime import date
 from decimal import Decimal
 
-from sqlalchemy import CheckConstraint, Date, Enum, ForeignKey, Index, Numeric, String
+from sqlalchemy import Boolean, CheckConstraint, Date, Enum, ForeignKey, Index, Integer, Numeric, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.extensions import db
@@ -31,5 +31,12 @@ class Transaction(db.Model):
     amount: Mapped[Decimal] = mapped_column(Numeric(14, 2))
     occurred_on: Mapped[date] = mapped_column(Date)
     note: Mapped[str | None] = mapped_column(String(255))
+    cdi_percent: Mapped[Decimal] = mapped_column(
+        Numeric(6, 2), default=Decimal("100.00"), server_default="100.00"
+    )
+    term_months: Mapped[int] = mapped_column(Integer, default=24, server_default="24")
+    locked: Mapped[bool] = mapped_column(Boolean, default=False, server_default="false")
+    sort_order: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    reinvestment_order: Mapped[int | None] = mapped_column(Integer, nullable=True)
 
     account: Mapped["Account"] = relationship(back_populates="transactions")

@@ -7,6 +7,7 @@ from app.models import Transaction
 from app.schemas.transaction import (
     TransactionFilters,
     TransactionIn,
+    TransactionOrderIn,
     TransactionOut,
     TransactionUpdate,
 )
@@ -52,6 +53,26 @@ def update_transaction(transaction_id):
         _user_id(), transaction_id, changes
     )
     return jsonify(transaction=_json(transaction))
+
+
+@bp.patch("/accounts/<uuid:account_id>/transactions/order")
+@jwt_required()
+def reorder_transactions(account_id):
+    data = TransactionOrderIn.model_validate(request.get_json(silent=True) or {})
+    transaction_service.reorder_transactions(
+        _user_id(), account_id, data.transaction_ids
+    )
+    return "", 204
+
+
+@bp.patch("/accounts/<uuid:account_id>/reapplications/order")
+@jwt_required()
+def reorder_reapplications(account_id):
+    data = TransactionOrderIn.model_validate(request.get_json(silent=True) or {})
+    transaction_service.reorder_reapplications(
+        _user_id(), account_id, data.transaction_ids
+    )
+    return "", 204
 
 
 @bp.delete("/transactions/<uuid:transaction_id>")

@@ -52,8 +52,9 @@ def test_withdrawal_can_use_earned_yield(client, auth_headers):
     account_id = new_account(client, auth_headers)
     transact(client, auth_headers, account_id, "DEPOSIT", "2025-01-15", "1000.00")
 
-    # em 17/01 o saldo é 1000 x 1,01 x 1,01 = 1020,10: mais do que foi aportado
-    response = transact(client, auth_headers, account_id, "WITHDRAWAL", "2025-01-17", "1020.10")
+    # O valor informado é líquido; após IOF/IR, o saldo disponível exibido é
+    # aproximadamente R$ 1.001,09.
+    response = transact(client, auth_headers, account_id, "WITHDRAWAL", "2025-01-17", "1001.09")
 
     assert response.status_code == 201
 

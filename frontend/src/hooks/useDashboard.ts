@@ -7,5 +7,7 @@ export function useDashboard() {
     queryKey: ['dashboard'], 
     queryFn: dashboardApi.get,  
     retry: false, 
+    staleTime: 30_000,
+    placeholderData: (previousData) => previousData,
   })
 }

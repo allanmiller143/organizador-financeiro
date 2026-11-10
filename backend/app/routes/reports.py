@@ -1,9 +1,9 @@
 import uuid
 
-from flask import Blueprint, jsonify
+from flask import Blueprint, Response, jsonify
 from flask_jwt_extended import get_jwt_identity, jwt_required
 
-from app.schemas.report import DashboardOut, MonthlyYieldsOut, SummaryOut
+from app.schemas.report import DashboardOut, DepositDetailsOut, MonthlyYieldsOut, SummaryOut
 from app.services import report_service
 
 bp = Blueprint("reports", __name__)
@@ -25,6 +25,35 @@ def account_summary(account_id):
 def account_monthly_yields(account_id):
     data = report_service.account_monthly_yields(_user_id(), account_id)
     return jsonify(monthly_yields=MonthlyYieldsOut(**data).model_dump(mode="json"))
+
+
+@bp.get("/accounts/<uuid:account_id>/deposit-details")
+@jwt_required()
+def account_deposit_details(account_id):
+    data = report_service.account_deposit_details(_user_id(), account_id)
+    return jsonify(deposit_details=DepositDetailsOut(**data).model_dump(mode="json"))
+
+
+@bp.get("/accounts/<uuid:account_id>/history.csv")
+@jwt_required()
+def account_history_csv(account_id):
+    content = report_service.account_history_csv(_user_id(), account_id)
+    response = Response(content, mimetype="text/csv; charset=utf-8")
+    response.headers["Content-Disposition"] = (
+        f'attachment; filename="historico-caixinha-{account_id}.csv"'
+    )
+    return response
+
+
+@bp.get("/accounts/<uuid:account_id>/deposit-details.csv")
+@jwt_required()
+def account_deposit_details_csv(account_id):
+    content = report_service.account_deposit_details_csv(_user_id(), account_id)
+    response = Response(content, mimetype="text/csv; charset=utf-8")
+    response.headers["Content-Disposition"] = (
+        f'attachment; filename="detalhes-depositos-{account_id}.csv"'
+    )
+    return response
 
 
 @bp.get("/dashboard")

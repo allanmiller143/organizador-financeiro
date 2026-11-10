@@ -41,7 +41,7 @@ export function GrossToNetCard({ totals }: { totals: Totals }) {
         <div className="flex items-center justify-between gap-4">
           <dt className="flex items-center gap-2 text-slate-600">
             <span className="h-2.5 w-2.5 rounded-full bg-rose-300" />
-            IR estimado
+            IR + IOF estimados
           </dt>
           <dd className="font-medium tabular-nums text-rose-600">
             − {formatMoney(totals.tax_estimated)}

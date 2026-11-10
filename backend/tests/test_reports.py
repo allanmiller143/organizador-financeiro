@@ -47,11 +47,13 @@ def test_summary_gross_tax_and_net(client, auth_headers):
     assert response.status_code == 200
     body = response.get_json()["summary"]
     assert body["as_of"] == "2025-01-21"
-    assert Decimal(body["gross_balance"]) == Decimal("1040.60")  # 1000 x 1,01^4
+    assert Decimal(body["gross_balance"]) == Decimal("1051.01")  # 1000 x 1,01^4: o dia do depósito (15/01) não rende
     assert Decimal(body["invested"]) == Decimal("1000.00")
-    assert Decimal(body["gross_yield"]) == Decimal("40.60")
-    assert Decimal(body["tax_estimated"]) == Decimal("9.14")  # 22,5% do rendimento
-    assert Decimal(body["net_balance"]) == Decimal("1031.47")
+    assert Decimal(body["gross_yield"]) == Decimal("51.01")
+    # idade de 6 dias: IOF de 80% do rendimento e IR de 22,5% sobre o que sobra
+    assert Decimal(body["iof_estimated"]) == Decimal("40.81")
+    assert Decimal(body["tax_estimated"]) == Decimal("43.10")  # IOF 32,48 + IR 1,83
+    assert Decimal(body["net_balance"]) == Decimal("1007.91")
     assert Decimal(body["tax_paid"]) == Decimal("0.00")
 
 
@@ -133,8 +135,60 @@ def test_monthly_yields(client, auth_headers):
     months = response.get_json()["monthly_yields"]["months"]
     assert len(months) == 1
     assert months[0]["month"] == "2025-01"
-    assert Decimal(months[0]["yield_amount"]) == Decimal("40.60")
-    assert Decimal(months[0]["net_yield_amount"]) == Decimal("31.47")
-    assert Decimal(months[0]["gross_balance"]) == Decimal("1040.60")
-    assert Decimal(months[0]["net_balance"]) == Decimal("1031.47")
+    assert Decimal(months[0]["yield_amount"]) == Decimal("51.01")
+    assert Decimal(months[0]["net_yield_amount"]) == Decimal("7.91")
+    assert Decimal(months[0]["gross_balance"]) == Decimal("1051.01")
+    assert Decimal(months[0]["net_balance"]) == Decimal("1007.91")
     assert months[0]["reapplications"] == []
+
+
+def test_history_csv_is_simple_day_operation_value(client, auth_headers):
+    add_cdi(15, 16, 17, 20, 21)
+    account_id = new_account(client, auth_headers)
+    deposit(client, auth_headers, account_id, "2025-01-15", "100.00")
+    client.post(
+        f"/api/accounts/{account_id}/transactions",
+        json={"kind": "WITHDRAWAL", "amount": "20.00", "occurred_on": "2025-01-16"},
+        headers=auth_headers,
+    )
+
+    response = client.get(f"/api/accounts/{account_id}/history.csv", headers=auth_headers)
+
+    assert response.status_code == 200
+    rows = response.data.decode("utf-8-sig").strip().splitlines()
+    assert rows[0] == "dia;operacao;valor"
+    assert rows[1].split(";") == ["2025-01-16", "retirada", "20.00"]
+    assert rows[2].split(";") == ["2025-01-15", "aporte", "100.00"]
+
+
+def test_history_csv_preserves_manual_same_day_order(client, auth_headers):
+    add_cdi(15)
+    account_id = new_account(client, auth_headers)
+    first = deposit(client, auth_headers, account_id, "2025-01-15", "100.00").get_json()["transaction"]["id"]
+    second = deposit(client, auth_headers, account_id, "2025-01-15", "200.00").get_json()["transaction"]["id"]
+    response = client.patch(
+        f"/api/accounts/{account_id}/transactions/order",
+        json={"transaction_ids": [second, first]},
+        headers=auth_headers,
+    )
+    assert response.status_code == 204
+
+    csv_response = client.get(f"/api/accounts/{account_id}/history.csv", headers=auth_headers)
+    rows = csv_response.data.decode("utf-8-sig").strip().splitlines()
+    assert rows[1].split(";") == ["2025-01-15", "aporte", "200.00"]
+    assert rows[2].split(";") == ["2025-01-15", "aporte", "100.00"]
+
+
+def test_new_same_day_transactions_appear_newest_first(client, auth_headers):
+    add_cdi(15)
+    account_id = new_account(client, auth_headers)
+    deposit(client, auth_headers, account_id, "2025-01-15", "100.00")
+    deposit(client, auth_headers, account_id, "2025-01-15", "200.00")
+    deposit(client, auth_headers, account_id, "2025-01-15", "300.00")
+
+    response = client.get(f"/api/accounts/{account_id}/transactions", headers=auth_headers)
+    assert [row["amount"] for row in response.get_json()["transactions"]] == [
+        "300.00",
+        "200.00",
+        "100.00",
+    ]

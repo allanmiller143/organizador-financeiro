@@ -1,4 +1,5 @@
-import { ArrowDownLeft, ArrowUpRight, Pencil, RotateCcw, Trash2 } from 'lucide-react'
+import { ArrowDownLeft, ArrowUpRight, GripVertical, Pencil, RotateCcw, Trash2 } from 'lucide-react'
+import { useState } from 'react'
 
 import type { Transaction } from '../../api/types'
 import { formatDate, formatMoney } from '../../lib/format'
@@ -8,10 +9,40 @@ type TransactionListProps = {
   entries: HistoryEntry[]
   onDelete: (transaction: Transaction) => void
   onEdit: (transaction: Transaction) => void
+  onReorder: (kind: 'transaction' | 'reapplication', occurredOn: string, ids: string[]) => void
   disabled: boolean // true enquanto algo está sendo apagado
 }
 
-export function TransactionList({ entries, onDelete, onEdit, disabled }: TransactionListProps) {
+export function TransactionList({ entries, onDelete, onEdit, onReorder, disabled }: TransactionListProps) {
+  const [draggedId, setDraggedId] = useState<string | null>(null)
+
+  function reorderAt(targetId: string) {
+    if (!draggedId || draggedId === targetId) return
+    const dragged = entries.find((entry) => entry.id === draggedId)
+    const target = entries.find((entry) => entry.id === targetId)
+    // A ordem do cálculo depende de todos os lançamentos do dia, não apenas
+    // de depósitos ou apenas de saques. Reaplicações continuam sendo uma
+    // lista separada, mas depósitos e retiradas precisam poder ser misturados.
+    if (!dragged || !target || dragged.type !== target.type) return
+    if (dragged.occurred_on !== target.occurred_on) return
+    const sameDay = entries.filter((entry) =>
+      entry.type === dragged.type && entry.occurred_on === target.occurred_on,
+    )
+    const ids = sameDay
+      .map((entry) => entry.type === 'transaction' ? entry.transaction.id : entry.reapplication.source_transaction_id)
+      .filter((id): id is string => id !== null)
+    const draggedKey = dragged.type === 'transaction' ? dragged.transaction.id : dragged.reapplication.source_transaction_id
+    const targetKey = target.type === 'transaction' ? target.transaction.id : target.reapplication.source_transaction_id
+    if (!draggedKey || !targetKey) return
+    const from = ids.indexOf(draggedKey)
+    const to = ids.indexOf(targetKey)
+    if (from < 0 || to < 0) return
+    ids.splice(from, 1)
+    ids.splice(to, 0, draggedKey)
+    onReorder(dragged.type, target.occurred_on, ids)
+    setDraggedId(null)
+  }
+
   return (
     <ul className="-mx-2 space-y-0.5">
       {entries.map((entry) => {
@@ -20,20 +51,33 @@ export function TransactionList({ entries, onDelete, onEdit, disabled }: Transac
           return (
             <li
               key={entry.id}
+              draggable={!disabled && event.source_transaction_id !== null}
+              onDragStart={() => setDraggedId(entry.id)}
+              onDragOver={(dragEvent) => {
+                if (draggedId && draggedId !== entry.id) dragEvent.preventDefault()
+              }}
+              onDrop={() => reorderAt(entry.id)}
+              onDragEnd={() => setDraggedId(null)}
               className="flex items-center gap-3 rounded-xl px-2 py-2.5 transition hover:bg-slate-50"
             >
+              <span className="cursor-grab text-slate-300" title="Arraste para reordenar nesta data">
+                <GripVertical size={16} />
+              </span>
               <span className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-indigo-50 text-indigo-600">
                 <RotateCcw size={18} />
               </span>
               <div className="min-w-0 flex-1">
                 <p className="text-sm font-medium text-slate-900">Reaplicação automática</p>
                 <p className="text-xs leading-relaxed text-slate-500">
-                  {formatDate(event.occurred_on)} · Rendeu {formatMoney(event.gross_yield)} · IR{' '}
-                  {formatMoney(event.tax_paid)} · Reinvestido {formatMoney(event.amount)}
+                  {formatDate(event.occurred_on)} · Vencimento de 2 anos · Rendeu{' '}
+                  {formatMoney(event.gross_yield)} · IR {formatMoney(event.tax_paid)}
                 </p>
               </div>
-              <span className="shrink-0 text-sm font-semibold tabular-nums text-indigo-700">
-                + {formatMoney(event.amount)}
+              <span className="shrink-0 text-right">
+                <span className="block text-sm font-semibold tabular-nums text-slate-500">
+                  {formatMoney(event.amount)}
+                </span>
+                <span className="block text-xs text-slate-400">reaplicado, não é aporte</span>
               </span>
             </li>
           )
@@ -46,8 +90,20 @@ export function TransactionList({ entries, onDelete, onEdit, disabled }: Transac
         return (
           <li
             key={entry.id}
+            draggable={!disabled}
+            onDragStart={() => setDraggedId(entry.id)}
+            onDragOver={(event) => {
+              if (draggedId && entry.transaction.occurred_on === entries.find((item) => item.id === draggedId)?.occurred_on) {
+                event.preventDefault()
+              }
+            }}
+            onDrop={() => reorderAt(entry.id)}
+            onDragEnd={() => setDraggedId(null)}
             className="flex items-center gap-3 rounded-xl px-2 py-2.5 transition hover:bg-slate-50"
           >
+            <span className="cursor-grab text-slate-300" title="Arraste para reordenar neste dia">
+              <GripVertical size={16} />
+            </span>
             <span
               className={`grid h-10 w-10 shrink-0 place-items-center rounded-full ${
                 isDeposit ? 'bg-teal-50 text-teal-600' : 'bg-rose-50 text-rose-500'

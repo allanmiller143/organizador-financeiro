@@ -33,7 +33,9 @@ export function Button({
       className={`${base} ${variants[variant]} ${className}`}
       {...props}
     >
-      {loading && <Loader2 size={18} className="animate-spin" />}
+      <span className={`grid h-[18px] w-[18px] place-items-center ${loading ? 'opacity-100' : 'opacity-0'}`} aria-hidden="true">
+        <Loader2 size={18} className={loading ? 'animate-spin' : ''} />
+      </span>
       {children}
     </button>
   )

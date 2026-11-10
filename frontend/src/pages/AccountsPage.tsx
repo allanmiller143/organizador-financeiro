@@ -11,21 +11,20 @@ import { LoadingState } from '../components/LoadingState'
 import { useAccounts, useDeleteAccount } from '../hooks/useAccounts'
 import { useDashboard } from '../hooks/useDashboard'
 import { AccountRow } from '../components/accounts/AccountRow'
+import { ConfirmDialog } from '../components/ConfirmDialog'
 
 export default function AccountsPage() {
   const { data: accounts, isPending, isError, error } = useAccounts()
   const dashboard = useDashboard() // de onde vem o saldo de cada caixinha
   const deleteAccount = useDeleteAccount()
   const [showForm, setShowForm] = useState(false)
+  const [accountToDelete, setAccountToDelete] = useState<Account | null>(null)
 
   // Um "dicionário": id da caixinha -> saldo bruto.
   const balances = new Map(dashboard.data?.accounts.map((a) => [a.account_id, a.gross_balance]))
 
   function handleDelete(account: Account) {
-    const confirmed = window.confirm(
-      `Apagar a caixinha "${account.name}"? Todas as transações dela também serão apagadas.`,
-    )
-    if (confirmed) deleteAccount.mutate(account.id)
+    setAccountToDelete(account)
   }
 
   const active = accounts?.filter((a) => a.is_active) ?? []
@@ -89,6 +88,17 @@ export default function AccountsPage() {
       )}
 
       <NewAccountDialog open={showForm} onClose={() => setShowForm(false)} />
+      <ConfirmDialog
+        open={accountToDelete !== null}
+        title="Excluir caixinha?"
+        message={accountToDelete ? `A caixinha “${accountToDelete.name}” e todas as transações dela serão apagadas permanentemente.` : ''}
+        loading={deleteAccount.isPending}
+        onClose={() => setAccountToDelete(null)}
+        onConfirm={() => {
+          if (!accountToDelete) return
+          deleteAccount.mutate(accountToDelete.id, { onSettled: () => setAccountToDelete(null) })
+        }}
+      />
     </div>
   )
 }

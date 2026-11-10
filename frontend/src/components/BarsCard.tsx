@@ -13,6 +13,7 @@ export type BarPoint = {
   label: string
   gross: number | null
   net: number | null
+  reference?: number | null // linha de comparação (ex.: valor aplicado)
 }
 
 type BarsCardProps = {
@@ -26,6 +27,7 @@ type BarsCardProps = {
   gradientId: string
   colors: [string, string]
   tooltipLabel: string
+  referenceLabel?: string
 }
 
 export function BarsCard({
@@ -39,6 +41,7 @@ export function BarsCard({
   gradientId,
   colors,
   tooltipLabel,
+  referenceLabel,
 }: BarsCardProps) {
   const [basis, setBasis] = useState<Basis>('gross')
 
@@ -46,7 +49,11 @@ export function BarsCard({
   const hasNet = points.some((point) => point.net !== null)
   const activeBasis: Basis = basis === 'net' && hasNet ? 'net' : 'gross'
 
-  const data = points.map((point) => ({ label: point.label, value: point[activeBasis] ?? 0 }))
+  const data = points.map((point) => ({
+    label: point.label,
+    value: point[activeBasis] ?? 0,
+    reference: point.reference ?? null,
+  }))
   const hasData = data.some((item) => item.value > 0)
 
   const label =
@@ -74,7 +81,13 @@ export function BarsCard({
         )}
 
         {!loading && !error && hasData && (
-          <BarsChart data={data} gradientId={gradientId} colors={colors} tooltipLabel={label} />
+          <BarsChart
+            data={data}
+            gradientId={gradientId}
+            colors={colors}
+            tooltipLabel={label}
+            referenceLabel={referenceLabel}
+          />
         )}
       </div>
     </InsightCard>

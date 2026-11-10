@@ -4,6 +4,8 @@ import type {
   useDeleteTransaction,
   useTransactions,
   useUpdateTransaction,
+  useReorderTransactions,
+  useReorderReapplications,
 } from '../../hooks/useTransactions'
 
 // Os tipos saem dos próprios hooks, então ficam sempre iguais ao que a API devolve.
@@ -12,6 +14,8 @@ export type MonthlyQuery = ReturnType<typeof useMonthlyYields>
 export type TransactionsQuery = ReturnType<typeof useTransactions>
 export type DeleteTransactionMutation = ReturnType<typeof useDeleteTransaction>
 export type UpdateTransactionMutation = ReturnType<typeof useUpdateTransaction>
+export type ReorderTransactionsMutation = ReturnType<typeof useReorderTransactions>
+export type ReorderReapplicationsMutation = ReturnType<typeof useReorderReapplications>
 
 export type MonthPoint = MonthlyYield
 export type HistoryEntry =

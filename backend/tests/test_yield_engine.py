@@ -26,15 +26,15 @@ def test_daily_yield_rate_applies_cdi_percent():
     assert daily_yield_rate(Decimal("1"), Decimal("110")) == Decimal("0.011")
 
 
-def test_deposit_starts_earning_next_business_day():
+def test_deposit_starts_earning_on_the_same_business_day():
     flows = [Flow(date(2025, 1, 6), Decimal("1000"))]
 
     points = simulate(flows, RATES, HUNDRED, date(2025, 1, 6), date(2025, 1, 8))
 
-    assert points[0].yield_amount == 0  # no dia do aporte ainda não rende
-    assert balance_on(points, date(2025, 1, 6)) == Decimal("1000")
-    assert balance_on(points, date(2025, 1, 7)) == Decimal("1010")
-    assert balance_on(points, date(2025, 1, 8)) == Decimal("1020.10")  # juro composto
+    assert points[0].yield_amount == Decimal("10")
+    assert balance_on(points, date(2025, 1, 6)) == Decimal("1010")
+    assert balance_on(points, date(2025, 1, 7)) == Decimal("1020.10")
+    assert balance_on(points, date(2025, 1, 8)) == Decimal("1030.3010")  # juro composto
 
 
 def test_weekend_does_not_earn():
@@ -42,12 +42,21 @@ def test_weekend_does_not_earn():
 
     points = simulate(flows, RATES, HUNDRED, date(2025, 1, 10), date(2025, 1, 13))
 
-    assert balance_on(points, date(2025, 1, 11)) == Decimal("1000")
+    assert balance_on(points, date(2025, 1, 11)) == Decimal("1010.00")
+    assert balance_on(points, date(2025, 1, 12)) == Decimal("1010.00")
+    assert balance_on(points, date(2025, 1, 13)) == Decimal("1020.1000")  # rendimento acumulado
+
+
+def test_deposit_on_a_weekend_starts_on_monday():
+    flows = [Flow(date(2025, 1, 11), Decimal("1000"))]  # sábado
+
+    points = simulate(flows, RATES, HUNDRED, date(2025, 1, 11), date(2025, 1, 13))
+
     assert balance_on(points, date(2025, 1, 12)) == Decimal("1000")
-    assert balance_on(points, date(2025, 1, 13)) == Decimal("1010")
+    assert balance_on(points, date(2025, 1, 13)) == Decimal("1010.00")
 
 
-def test_withdrawal_comes_after_the_days_yield():
+def test_withdrawal_is_closed_before_the_days_yield():
     flows = [
         Flow(date(2025, 1, 6), Decimal("1000")),
         Flow(date(2025, 1, 8), Decimal("-500")),
@@ -56,8 +65,8 @@ def test_withdrawal_comes_after_the_days_yield():
     points = simulate(flows, RATES, HUNDRED, date(2025, 1, 6), date(2025, 1, 8))
 
     last = points[-1]
-    assert last.yield_amount == Decimal("10.10")  # rendeu sobre 1010 antes de sacar
-    assert last.balance == Decimal("520.10")  # 1020,10 - 500
+    assert last.yield_amount == Decimal("5.201000")  # só o saldo que permaneceu rendeu
+    assert last.balance == Decimal("525.301000")
 
 
 def test_110_percent_of_cdi_earns_more():
@@ -65,7 +74,7 @@ def test_110_percent_of_cdi_earns_more():
 
     points = simulate(flows, RATES, Decimal("110"), date(2025, 1, 6), date(2025, 1, 7))
 
-    assert balance_on(points, date(2025, 1, 7)) == Decimal("1011")
+    assert balance_on(points, date(2025, 1, 7)) == Decimal("1022.121000")  # dois dias de rendimento
 
 
 def test_monthly_yields_split_by_month():

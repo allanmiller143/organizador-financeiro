@@ -14,6 +14,10 @@ class SummaryOut(BaseModel):
     tax_estimated: Decimal
     net_balance: Decimal
     tax_paid: Decimal
+    deposited_total: Decimal
+    locked_balance: Decimal
+    iof_paid: Decimal
+    iof_estimated: Decimal
 
 
 class ReapplicationOut(BaseModel):
@@ -21,6 +25,7 @@ class ReapplicationOut(BaseModel):
     gross_yield: Decimal
     tax_paid: Decimal
     amount: Decimal
+    source_transaction_id: uuid.UUID | None
 
 
 class MonthlyYield(BaseModel):
@@ -29,6 +34,7 @@ class MonthlyYield(BaseModel):
     net_yield_amount: Decimal
     gross_balance: Decimal
     net_balance: Decimal
+    invested: Decimal
     reapplications: list[ReapplicationOut]
 
 
@@ -37,6 +43,40 @@ class MonthlyYieldsOut(BaseModel):
     as_of: date
     months: list[MonthlyYield]
 
+
+class DepositWithdrawalOut(BaseModel):
+    occurred_on: date
+    amount: Decimal
+    gross_yield: Decimal
+    income_tax: Decimal
+    iof: Decimal
+    net_amount: Decimal
+
+
+class DepositDetailOut(BaseModel):
+    deposited_on: date
+    product: str
+    applied_amount: Decimal
+    principal_remaining: Decimal
+    partial_withdrawals: Decimal
+    gross_yield: Decimal
+    income_tax: Decimal
+    iof: Decimal
+    iof_estimated: Decimal
+    withdrawals: list[DepositWithdrawalOut]
+    gross_balance: Decimal
+    net_balance: Decimal
+    maturity_on: date
+    locked: bool
+    term_months: int
+    cdi_percent: Decimal
+
+
+class DepositDetailsOut(BaseModel):
+    account_id: uuid.UUID
+    as_of: date
+    deposits: list[DepositDetailOut]
+
 class DashboardTotals(BaseModel):
     gross_balance: Decimal
     invested: Decimal
@@ -44,6 +84,10 @@ class DashboardTotals(BaseModel):
     tax_estimated: Decimal
     net_balance: Decimal
     tax_paid: Decimal
+    deposited_total: Decimal
+    locked_balance: Decimal
+    iof_paid: Decimal
+    iof_estimated: Decimal
 
 
 class DashboardAccount(BaseModel):

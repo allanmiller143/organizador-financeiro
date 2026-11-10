@@ -1,7 +1,8 @@
 import { useMemo, useState } from 'react'
-import { ChevronDown, History, Plus, Receipt } from 'lucide-react'
+import { ChevronDown, Download, History, Plus, Receipt } from 'lucide-react'
 
 import { describeError } from '../../lib/errors'
+import { formatDate, formatMoney } from '../../lib/format'
 import { Button } from '../Button'
 import { InsightCard } from '../dashboard/InsightCard'
 import { ErrorMessage } from '../ErrorMessage'
@@ -11,35 +12,56 @@ import type {
   DeleteTransactionMutation,
   HistoryEntry,
   MonthlyQuery,
+  ReorderTransactionsMutation,
+  ReorderReapplicationsMutation,
   TransactionsQuery,
   UpdateTransactionMutation,
 } from './types'
 import { EditTransactionDialog } from './EditTransactionDialog'
 import { TransactionList } from './TransactionList'
+import { ConfirmDialog } from '../ConfirmDialog'
+import { accountsApi } from '../../api/accounts'
 
 const PREVIEW_COUNT = 3 // quantos lançamentos aparecem sem expandir
 type HistoryFilter = 'all' | 'deposit' | 'withdrawal' | 'reapplication'
 
+const MONTH_NAMES = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez']
+
+function formatHistoryDateHeading(iso: string) {
+  const [year, month, day] = iso.split('-')
+  return `${day} ${MONTH_NAMES[Number(month) - 1]} ${year}`
+}
+
 type HistoryCardProps = {
+  accountId: string
   transactions: TransactionsQuery
   monthly: MonthlyQuery
   deleteTransaction: DeleteTransactionMutation
   updateTransaction: UpdateTransactionMutation
+  reorderTransactions: ReorderTransactionsMutation
+  reorderReapplications: ReorderReapplicationsMutation
+  accountCdiPercent: string
   openedOn: string
   onNew: () => void
 }
 
 export function HistoryCard({
+  accountId,
   transactions,
   monthly,
   deleteTransaction,
   updateTransaction,
+  reorderTransactions,
+  reorderReapplications,
+  accountCdiPercent,
   openedOn,
   onNew,
 }: HistoryCardProps) {
   const [expanded, setExpanded] = useState(false)
   const [filter, setFilter] = useState<HistoryFilter>('all')
   const [editingDeposit, setEditingDeposit] = useState<Transaction | null>(null)
+  const [transactionToDelete, setTransactionToDelete] = useState<Transaction | null>(null)
+  const [isExporting, setIsExporting] = useState(false)
 
   const entries = useMemo<HistoryEntry[]>(() => {
     const transactionEntries: HistoryEntry[] = (transactions.data ?? []).map((transaction) => ({
@@ -54,12 +76,21 @@ export function HistoryCard({
           type: 'reapplication' as const,
           reapplication,
           occurred_on: reapplication.occurred_on,
-          id: `reapplication-${monthIndex}-${eventIndex}`,
+          id: `reapplication-${reapplication.source_transaction_id ?? `${monthIndex}-${eventIndex}`}-${reapplication.occurred_on}`,
         })),
     )
-    return [...transactionEntries, ...reapplicationEntries].sort((a, b) =>
-      b.occurred_on.localeCompare(a.occurred_on),
-    )
+    return [...transactionEntries, ...reapplicationEntries].sort((a, b) => {
+      const byDate = b.occurred_on.localeCompare(a.occurred_on)
+      if (byDate !== 0) return byDate
+      if (a.type === 'transaction' && b.type === 'transaction') {
+        const aOrder = a.transaction.sort_order ?? Number.MAX_SAFE_INTEGER
+        const bOrder = b.transaction.sort_order ?? Number.MAX_SAFE_INTEGER
+        // sort_order é a ordem operacional persistida e vale tanto para a
+        // tela quanto para o motor e para o CSV.
+        return aOrder - bOrder
+      }
+      return 0
+    })
   }, [transactions.data, monthly.data])
 
   const deposits = (transactions.data ?? []).filter((item) => item.kind === 'DEPOSIT').length
@@ -70,14 +101,42 @@ export function HistoryCard({
     if (filter === 'reapplication') return entry.type === 'reapplication'
     return entry.type === 'transaction' && entry.transaction.kind === filter.toUpperCase()
   })
+  function handleReorder(kind: 'transaction' | 'reapplication', occurredOn: string, visibleIds: string[]) {
+    if (kind === 'reapplication') {
+      const allIds = (monthly.data?.months ?? [])
+        .flatMap((month) => month.reapplications ?? [])
+        .filter((reapplication) => reapplication.occurred_on === occurredOn)
+        .map((reapplication) => reapplication.source_transaction_id)
+        .filter((id): id is string => id !== null)
+      const reordered = [...visibleIds, ...allIds.filter((id) => !visibleIds.includes(id))]
+      reorderReapplications.mutate(reordered)
+      return
+    }
+    const allIds = (transactions.data ?? [])
+      .filter((transaction) => transaction.occurred_on === occurredOn)
+      .map((transaction) => transaction.id)
+    const visualOrder = [...visibleIds, ...allIds.filter((id) => !visibleIds.includes(id))]
+    reorderTransactions.mutate(visualOrder)
+  }
   const showAllFiltered = expanded || filter === 'reapplication'
   const visible = showAllFiltered ? filteredEntries : filteredEntries.slice(0, PREVIEW_COUNT)
+  const visibleGroups = visible.reduce<Array<{ date: string; entries: HistoryEntry[] }>>((groups, entry) => {
+    const current = groups[groups.length - 1]
+    if (current?.date === entry.occurred_on) {
+      current.entries.push(entry)
+    } else {
+      groups.push({ date: entry.occurred_on, entries: [entry] })
+    }
+    return groups
+  }, [])
   const canExpand = filter !== 'reapplication' && filteredEntries.length > PREVIEW_COUNT
 
+  // Reaplicação não é lançamento seu: só aportes e retiradas entram na contagem.
+  const launches = deposits + withdrawals
   const subtitle =
     transactions.data === undefined
       ? 'Aportes, retiradas e reaplicações desta caixinha'
-      : `${entries.length} ${entries.length === 1 ? 'lançamento' : 'lançamentos'}`
+      : `${launches} ${launches === 1 ? 'lançamento' : 'lançamentos'}`
 
   return (
     <InsightCard
@@ -85,16 +144,10 @@ export function HistoryCard({
       title="Histórico"
       subtitle={subtitle}
       action={
-        entries.length > 0 ? (
-          <button
-            type="button"
-            onClick={onNew}
-            className="inline-flex shrink-0 cursor-pointer items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-medium text-teal-700 ring-1 ring-teal-200 transition hover:bg-teal-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-500"
-          >
-            <Plus size={16} />
-            Lançamento
-          </button>
-        ) : undefined
+        <div className="flex flex-wrap items-center justify-end gap-2">
+          {entries.length > 0 && <button type="button" onClick={onNew} className="inline-flex shrink-0 cursor-pointer items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-medium text-teal-700 ring-1 ring-teal-200 transition hover:bg-teal-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-500"><Plus size={16} />Lançamento</button>}
+          <button type="button" disabled={isExporting} onClick={async () => { setIsExporting(true); try { const blob = await accountsApi.historyCsv(accountId); const url = URL.createObjectURL(blob); const link = document.createElement('a'); link.href = url; link.download = 'historico-movimentacoes-caixinha.csv'; link.click(); URL.revokeObjectURL(url) } finally { setIsExporting(false) } }} className="inline-flex shrink-0 cursor-pointer items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-medium text-slate-700 ring-1 ring-slate-200 transition hover:bg-slate-50 disabled:cursor-wait disabled:opacity-60"><Download size={16} />{isExporting ? 'Gerando...' : 'Exportar histórico'}</button>
+        </div>
       }
     >
       <div className="mt-4">
@@ -182,16 +235,25 @@ export function HistoryCard({
                   showAllFiltered ? 'max-h-96 overflow-y-auto' : ''
                 }`}
               >
-                <TransactionList
-                  entries={visible}
-                  disabled={deleteTransaction.isPending || updateTransaction.isPending}
-                  onEdit={setEditingDeposit}
-                  onDelete={(transaction) => {
-                    if (window.confirm('Apagar este lançamento?')) {
-                      deleteTransaction.mutate(transaction.id)
-                    }
-                  }}
-                />
+                <div className="space-y-4">
+                  {visibleGroups.map((group) => (
+                    <section key={group.date} aria-label={`Lançamentos de ${formatDate(group.date)}`}>
+                      <div className="mb-1 flex items-center gap-3 px-2">
+                        <span className="text-xs font-bold uppercase tracking-[0.12em] text-slate-500">
+                          {formatHistoryDateHeading(group.date)}
+                        </span>
+                        <span className="h-px flex-1 bg-slate-100" />
+                      </div>
+                      <TransactionList
+                        entries={group.entries}
+                        disabled={deleteTransaction.isPending || updateTransaction.isPending}
+                        onEdit={setEditingDeposit}
+                        onReorder={handleReorder}
+                        onDelete={setTransactionToDelete}
+                      />
+                    </section>
+                  ))}
+                </div>
               </div>
             )}
 
@@ -214,9 +276,21 @@ export function HistoryCard({
       </div>
       <EditTransactionDialog
         transaction={editingDeposit}
+        accountCdiPercent={accountCdiPercent}
         openedOn={openedOn}
         updateTransaction={updateTransaction}
         onClose={() => setEditingDeposit(null)}
+      />
+      <ConfirmDialog
+        open={transactionToDelete !== null}
+        title="Excluir lançamento?"
+        message={transactionToDelete ? `O ${transactionToDelete.kind === 'DEPOSIT' ? 'aporte' : 'saque'} de ${formatMoney(transactionToDelete.amount)} será removido do histórico e os cálculos serão refeitos.` : ''}
+        loading={deleteTransaction.isPending}
+        onClose={() => setTransactionToDelete(null)}
+        onConfirm={() => {
+          if (!transactionToDelete) return
+          deleteTransaction.mutate(transactionToDelete.id, { onSettled: () => setTransactionToDelete(null) })
+        }}
       />
     </InsightCard>
   )

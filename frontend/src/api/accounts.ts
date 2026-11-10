@@ -1,5 +1,5 @@
-import { api } from './client'
-import type { Account, AccountInput, AccountSummary, AccountUpdate, MonthlyYields } from './types'
+import { api, requestBlob } from './client'
+import type { Account, AccountInput, AccountSummary, AccountUpdate, DepositDetails, MonthlyYields } from './types'
 
 export const accountsApi = {
   // O backend devolve { accounts: [...] }; entregamos só a lista.
@@ -23,6 +23,15 @@ export const accountsApi = {
     api
       .get<{ monthly_yields: MonthlyYields }>(`/accounts/${id}/monthly-yields`)
       .then((r) => r.monthly_yields),
+
+  depositDetails: (id: string) =>
+    api
+      .get<{ deposit_details: DepositDetails }>(`/accounts/${id}/deposit-details`)
+      .then((r) => r.deposit_details),
+
+  historyCsv: (id: string) => requestBlob(`/accounts/${id}/history.csv`),
+
+  depositDetailsCsv: (id: string) => requestBlob(`/accounts/${id}/deposit-details.csv`),
 
   update: (id: string, data: AccountUpdate) =>
     api.patch<{ account: Account }>(`/accounts/${id}`, data).then((r) => r.account),

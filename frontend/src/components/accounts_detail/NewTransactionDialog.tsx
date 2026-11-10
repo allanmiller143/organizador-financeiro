@@ -21,6 +21,7 @@ type NewTransactionDialogProps = {
   open: boolean
   onClose: () => void
   accountId: string
+  accountCdiPercent: string
   openedOn: string
   transactionCount?: number
 }
@@ -29,6 +30,7 @@ export function NewTransactionDialog({
   open,
   onClose,
   accountId,
+  accountCdiPercent,
   openedOn,
   transactionCount,
 }: NewTransactionDialogProps) {
@@ -41,7 +43,11 @@ export function NewTransactionDialog({
       subtitle="Registre um aporte ou uma retirada"
     >
       <CloseWhenCreated count={transactionCount} onClose={onClose} />
-      <TransactionForm accountId={accountId} openedOn={openedOn} />
+      <TransactionForm
+        accountId={accountId}
+        accountCdiPercent={accountCdiPercent}
+        openedOn={openedOn}
+      />
     </Dialog>
   )
 }

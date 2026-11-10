@@ -16,6 +16,12 @@ class Flow:
 
     day: date
     amount: Decimal
+    cdi_percent: Decimal = Decimal("100.00")
+    term_months: int = 24
+    locked: bool = False
+    sequence: int = 0
+    source_id: str | None = None
+    reinvestment_order: int | None = None
 
 
 @dataclass(frozen=True)
@@ -35,7 +41,8 @@ def daily_yield_rate(daily_rate: Decimal, cdi_percent: Decimal) -> Decimal:
 
 def check_coverage(rates: dict[date, Decimal], start: date, end: date) -> None:
     too_early = start < min(rates, default=start) - timedelta(days=MAX_GAP_DAYS)
-    if not rates or end > max(rates) or too_early:
+    too_late = rates and end > max(rates) + timedelta(days=MAX_GAP_DAYS)
+    if not rates or too_late or too_early:
         raise CdiCoverageError("O CDI gravado não cobre o período pedido.")
 
 
@@ -48,25 +55,33 @@ def simulate(
 ) -> list[DayPoint]:
     """Calcula o saldo e o rendimento de cada dia, de start até end.
 
-    Em cada dia: primeiro rende (se for dia útil), depois entram as movimentações.
+    Aporte feito no dia rende no próprio dia quando há CDI disponível. Aportes são
+    processados antes do rendimento e retiradas depois do rendimento do dia.
     """
     if start > end:
         return []
     check_coverage(rates, start, end)
 
-    flows_by_day: dict[date, Decimal] = defaultdict(Decimal)
+    flows_by_day: dict[date, list[Flow]] = defaultdict(list)
     for flow in flows:
-        flows_by_day[flow.day] += flow.amount
+        flows_by_day[flow.day].append(flow)
+    for day_flows in flows_by_day.values():
+        day_flows.sort(key=lambda flow: flow.sequence)
 
     balance = Decimal("0")
     points: list[DayPoint] = []
     day = start
     while day <= end:
+        for flow in flows_by_day.get(day, []):
+            if flow.amount > 0:
+                balance += flow.amount
+        for flow in flows_by_day.get(day, []):
+            if flow.amount < 0:
+                balance += flow.amount
         earned = Decimal("0")
-        if day in rates:  # só dias úteis têm CDI
+        if day in rates:  # só dias úteis têm CDI; o aporte do dia também participa
             earned = balance * daily_yield_rate(rates[day], cdi_percent)
             balance += earned
-        balance += flows_by_day.get(day, Decimal("0"))
         points.append(DayPoint(day=day, balance=balance, yield_amount=earned))
         day += timedelta(days=1)
     return points

@@ -110,6 +110,41 @@ def test_list_newest_first(client, auth_headers):
     assert dates == ["2025-03-10", "2025-02-10"]
 
 
+def test_same_day_transactions_show_newest_registration_first(client, auth_headers):
+    account_id = new_account(client, auth_headers)
+    first = add(client, auth_headers, account_id, amount="840.00").get_json()["transaction"]
+    second = add(client, auth_headers, account_id, amount="160.00").get_json()["transaction"]
+
+    response = listing(client, auth_headers, account_id)
+    same_day = [
+        item for item in response.get_json()["transactions"] if item["occurred_on"] == TX["occurred_on"]
+    ]
+
+    assert [item["id"] for item in same_day[:2]] == [second["id"], first["id"]]
+
+
+def test_reorder_same_day_preserves_mixed_deposit_withdrawal_order(client, auth_headers):
+    account_id = new_account(client, auth_headers)
+    deposit = add(client, auth_headers, account_id, amount="1000.00").get_json()["transaction"]
+    withdrawal = add(
+        client,
+        auth_headers,
+        account_id,
+        kind="WITHDRAWAL",
+        amount="100.00",
+    ).get_json()["transaction"]
+
+    response = client.patch(
+        f"/api/accounts/{account_id}/transactions/order",
+        json={"transaction_ids": [withdrawal["id"], deposit["id"]]},
+        headers=auth_headers,
+    )
+
+    assert response.status_code == 204
+    same_day = listing(client, auth_headers, account_id).get_json()["transactions"]
+    assert [item["id"] for item in same_day[:2]] == [withdrawal["id"], deposit["id"]]
+
+
 def test_list_filters_by_kind(client, auth_headers):
     account_id = new_account(client, auth_headers)
     add(client, auth_headers, account_id)
@@ -218,3 +253,57 @@ def test_cannot_delete_other_users_transaction(client, auth_headers, other_heade
     assert response.status_code == 404
     still_there = listing(client, other_headers, other_account_id).get_json()
     assert len(still_there["transactions"]) == 1
+
+
+def new_account_with(client, headers, cdi_percent):
+    response = client.post(
+        "/api/accounts", json={**ACCOUNT, "cdi_percent": cdi_percent}, headers=headers
+    )
+    return response.get_json()["account"]["id"]
+
+
+def test_locked_deposit_is_allowed_on_a_100_percent_account(client, auth_headers):
+    account_id = new_account(client, auth_headers)
+
+    response = add(
+        client, auth_headers, account_id, cdi_percent="104.50", term_months=6, locked=True
+    )
+
+    assert response.status_code == 201
+    body = response.get_json()["transaction"]
+    assert body["locked"] is True
+    assert Decimal(body["cdi_percent"]) == Decimal("104.50")
+    assert body["term_months"] == 6
+
+
+def test_locked_deposit_is_rejected_above_100_percent(client, auth_headers):
+    account_id = new_account_with(client, auth_headers, "120.00")
+
+    response = add(
+        client, auth_headers, account_id, cdi_percent="104.50", term_months=6, locked=True
+    )
+
+    assert response.status_code == 422
+    assert response.get_json()["error"]["code"] == "lock_not_allowed"
+
+
+def test_lock_longer_than_two_years_is_rejected(client, auth_headers):
+    account_id = new_account(client, auth_headers)
+
+    response = add(
+        client, auth_headers, account_id, cdi_percent="106.00", term_months=36, locked=True
+    )
+
+    assert response.status_code == 422
+    assert response.get_json()["error"]["code"] == "lock_term_too_long"
+
+
+def test_unlocked_deposit_takes_the_account_percentage(client, auth_headers):
+    account_id = new_account_with(client, auth_headers, "120.00")
+
+    response = add(client, auth_headers, account_id, cdi_percent="100.00")
+
+    assert response.status_code == 201
+    body = response.get_json()["transaction"]
+    assert body["locked"] is False
+    assert Decimal(body["cdi_percent"]) == Decimal("120.00")
