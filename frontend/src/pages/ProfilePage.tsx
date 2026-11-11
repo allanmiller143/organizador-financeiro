@@ -68,7 +68,7 @@ export default function ProfilePage() {
       </section>
 
       <section className="rounded-2xl bg-white p-6 shadow-sm ring-1 ring-slate-200">
-        <div className="max-w-xl">
+        <div >
           <h2 className="text-lg font-semibold">Alterar senha</h2>
           <p className="mt-1 text-sm text-slate-500">
             Confirme sua senha atual e escolha uma nova com pelo menos 8 caracteres.
