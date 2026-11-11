@@ -1,5 +1,6 @@
 from datetime import date, datetime, timedelta
 from decimal import Decimal
+from threading import Lock
 
 import requests
 from flask import current_app
@@ -13,7 +14,8 @@ from app.services.calendar_br import today_brazil
 
 BCB_URL = "https://api.bcb.gov.br/dados/serie/bcdata.sgs.12/dados"
 WINDOW_DAYS = 365 * 5  # o Banco Central limita o tamanho da janela de consulta
-STALE_AFTER_DAYS = 4  # tolera fim de semana somado a um feriado
+_last_auto_sync_attempt: tuple[int, date] | None = None
+_auto_sync_lock = Lock()
 
 
 def fetch_cdi_series(start: date, end: date) -> list[tuple[date, Decimal]]:
@@ -24,7 +26,7 @@ def fetch_cdi_series(start: date, end: date) -> list[tuple[date, Decimal]]:
         "dataFinal": end.strftime("%d/%m/%Y"),
     }
     try:
-        response = requests.get(BCB_URL, params=params, timeout=30)
+        response = requests.get(BCB_URL, params=params, timeout=8)
         response.raise_for_status()
         rows = response.json()
     except (requests.RequestException, ValueError) as exc:
@@ -93,18 +95,33 @@ def list_rates(date_from: date | None = None, date_to: date | None = None) -> li
 
 
 def ensure_fresh() -> None:
-    """Se o CDI estiver atrasado, tenta sincronizar na hora."""
+    """Tenta sincronizar uma vez por dia quando o dashboard é consultado."""
     if not current_app.config.get("CDI_AUTO_SYNC"):
         return
 
-    last = db.session.scalar(select(func.max(CdiRate.reference_date)))
-    if last is not None and (today_brazil() - last).days < STALE_AFTER_DAYS:
-        return
+    global _last_auto_sync_attempt
+    today = today_brazil()
+    app_key = id(current_app._get_current_object())
+    with _auto_sync_lock:
+        if _last_auto_sync_attempt == (app_key, today):
+            return
+        # Marcar antes da chamada evita que vários requests concorrentes façam a
+        # mesma consulta. Um novo dia ou o botão manual permite tentar novamente.
+        _last_auto_sync_attempt = (app_key, today)
 
     try:
         sync_cdi()
     except AppError:
         current_app.logger.warning("CDI não atualizado; usando os dados já gravados.")
+
+
+def sync_cdi_now() -> tuple[int, date | None]:
+    """Força uma sincronização manual e devolve a última data gravada."""
+    inserted = sync_cdi()
+    latest = db.session.scalar(select(func.max(CdiRate.reference_date)))
+    global _last_auto_sync_attempt
+    _last_auto_sync_attempt = (id(current_app._get_current_object()), today_brazil())
+    return inserted, latest
 
 
 def ensure_covers(start: date) -> None:

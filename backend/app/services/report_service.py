@@ -1,5 +1,6 @@
 import csv
 import io
+import math
 import uuid
 from contextlib import contextmanager
 from dataclasses import asdict, dataclass, fields
@@ -13,7 +14,7 @@ from app.errors import AppError
 from app.extensions import db
 from app.models import Account, CdiRate, Transaction, TransactionKind
 from app.services import account_service, cdi_service
-from app.services.calendar_br import is_business_day, today_brazil
+from app.services.calendar_br import today_brazil
 from app.services.deposit_detail_service import calculate_deposit_details
 from app.services.tax_engine import (
     InsufficientBalanceError,
@@ -35,6 +36,7 @@ class _Context:
     rates: dict[date, Decimal]
     start: date
     end: date
+    as_of: date
 
 
 @contextmanager
@@ -113,17 +115,24 @@ def _build_context(account: Account) -> _Context | None:
     if last_cdi is None:
         return None
 
-    # O relatório fecha no dia atual quando o último CDI está dentro da janela
-    # normal de publicação (fim de semana/feriado). Não repetimos CDI: dias sem
-    # taxa apenas não rendem, mas continuam contando para IR e IOF.
     today = today_brazil()
-    # Em dia útil, não rotule o relatório como "atualizado hoje" quando o CDI
-    # de hoje ainda não foi publicado/sincronizado. Finais de semana e feriados
-    # podem fechar na data civil atual sem inventar uma taxa.
-    end = today if not is_business_day(today) and today - last_cdi <= timedelta(days=5) else last_cdi
+    # O saldo contabiliza movimentações já lançadas mesmo quando o CDI mais
+    # recente ainda é de um dia anterior. Dias sem uma taxa publicada não
+    # recebem rendimento; `as_of` continua indicando a data real do CDI usado.
+    eligible_flows = [flow for flow in all_flows if flow.day <= today]
+    latest_flow_day = max((flow.day for flow in eligible_flows), default=last_cdi)
+    end = max(last_cdi, latest_flow_day)
+    # Mantém a data civil atual mesmo em dia útil sem CDI publicado ainda. Isso
+    # avança idade tributária e permite maturidades/reaplicações, sem inventar
+    # rendimento nos dias que não têm taxa gravada.
+    if today >= last_cdi and today - last_cdi <= timedelta(days=5):
+        end = max(end, today)
     flows = [flow for flow in all_flows if flow.day <= end]
     start = flows[0].day if flows else end
-    return _Context(account, flows, _load_rates(start, end), start, end)
+    # Inclui a última taxa conhecida mesmo que o primeiro fluxo seja mais novo;
+    # isso permite validar saldo principal sem exigir CDI no dia do aporte.
+    rates_start = min(start, last_cdi)
+    return _Context(account, flows, _load_rates(rates_start, end), start, end, last_cdi)
 
 
 def _prepare(user_id: uuid.UUID, account_id: uuid.UUID) -> _Context:
@@ -166,7 +175,115 @@ def account_summary(user_id: uuid.UUID, account_id: uuid.UUID) -> dict:
             ctx.flows, ctx.rates, ctx.account.cdi_percent, ctx.start, ctx.end
         )
     values = {name: to_cents(value) for name, value in asdict(summary).items()}
-    return {"account_id": ctx.account.id, "as_of": ctx.end, **values}
+    return {"account_id": ctx.account.id, "as_of": ctx.as_of, **values}
+
+
+
+FORECAST_HORIZON_DAYS = 365 * 30  # limite da busca: 30 anos
+
+
+def _months_between(start: date, end: date) -> int:
+    months = (end.year - start.year) * 12 + end.month - start.month
+    if end.day > start.day:
+        months += 1
+    return max(1, months)
+
+
+def account_goal_forecast(user_id: uuid.UUID, account_id: uuid.UUID) -> dict:
+    """Estima o prazo da meta pelo saldo LÍQUIDO, simulando o motor tributário.
+
+    Projeta o CDI médio recente em dias úteis futuros, sem novos aportes/retiradas,
+    e procura (busca binária) o primeiro dia em que o saldo líquido atinge a meta.
+    """
+    account = account_service.get_account(user_id, account_id)
+    if account.goal_amount is None:
+        raise AppError("Defina uma meta para estimar o prazo.", 409, "goal_not_set")
+
+    goal = account.goal_amount
+    today = today_brazil()
+    ctx = _prepare(user_id, account_id)
+
+    with _engine_errors():
+        current = simulate_lots(
+            ctx.flows, ctx.rates, account.cdi_percent, ctx.start, ctx.end
+        )
+    balance = to_cents(current.net_balance)
+
+    base = {"balance": balance, "goal_amount": goal}
+
+    if balance >= goal:
+        return {
+            **base,
+            "status": "reached",
+            "months": 0,
+            "projected_date": today,
+            "assumption": "Saldo líquido (após impostos estimados) já atingiu a meta.",
+        }
+    if balance <= 0:
+        return {
+            **base,
+            "status": "no_balance",
+            "months": None,
+            "projected_date": None,
+            "assumption": "Sem saldo atual, não há prazo estimável sem novos aportes.",
+        }
+
+    rows = db.session.scalars(
+        select(CdiRate)
+        .where(CdiRate.reference_date >= today - timedelta(days=60))
+        .order_by(CdiRate.reference_date.desc())
+        .limit(30)
+    )
+    recent_rates = [row.daily_rate for row in rows]
+    if not recent_rates:
+        raise AppError("Não há histórico recente de CDI para estimar a meta.", 409, "cdi_not_synced")
+
+    average_daily_rate = sum(recent_rates, Decimal("0")) / len(recent_rates)
+    no_growth = {
+        **base,
+        "status": "no_growth",
+        "months": None,
+        "projected_date": None,
+        "assumption": "Sem crescimento positivo estimável em até 30 anos com o CDI recente.",
+    }
+    if average_daily_rate <= 0:
+        return no_growth
+
+    # Taxas futuras: média recente em todos os dias úteis (seg-sex) após o último dia simulado.
+    horizon_end = ctx.end + timedelta(days=FORECAST_HORIZON_DAYS)
+    future_rates = dict(ctx.rates)
+    day = ctx.end + timedelta(days=1)
+    while day <= horizon_end:
+        if day.weekday() < 5:
+            future_rates[day] = average_daily_rate
+        day += timedelta(days=1)
+
+    def net_at(target: date) -> Decimal:
+        return simulate_lots(
+            ctx.flows, future_rates, account.cdi_percent, ctx.start, target
+        ).net_balance
+
+    with _engine_errors():
+        if net_at(horizon_end) < goal:
+            return no_growth
+        low, high = ctx.end, horizon_end  # low: abaixo da meta; high: atinge a meta
+        while (high - low).days > 1:
+            mid = low + (high - low) // 2
+            if net_at(mid) >= goal:
+                high = mid
+            else:
+                low = mid
+
+    return {
+        **base,
+        "status": "projected",
+        "months": _months_between(today, high),
+        "projected_date": high,
+        "assumption": (
+            "Saldo líquido (após IR e IOF estimados). Média dos últimos até 30 registros "
+            "de CDI mantida nos dias úteis; sem novos aportes/retiradas."
+        ),
+    }
 
 
 def account_monthly_yields(user_id: uuid.UUID, account_id: uuid.UUID) -> dict:
@@ -206,7 +323,7 @@ def account_monthly_yields(user_id: uuid.UUID, account_id: uuid.UUID) -> dict:
         )
         previous_estimated_tax = balance.tax_estimated
         previous_paid_tax = balance.tax_paid
-    return {"account_id": ctx.account.id, "as_of": ctx.end, "months": months}
+    return {"account_id": ctx.account.id, "as_of": ctx.as_of, "months": months}
 
 
 def account_deposit_details(user_id: uuid.UUID, account_id: uuid.UUID) -> dict:
@@ -215,7 +332,7 @@ def account_deposit_details(user_id: uuid.UUID, account_id: uuid.UUID) -> dict:
         deposits = calculate_deposit_details(
             ctx.flows, ctx.rates, ctx.account.cdi_percent, ctx.start, ctx.end
         )
-    return {"account_id": ctx.account.id, "as_of": ctx.end, "deposits": deposits}
+    return {"account_id": ctx.account.id, "as_of": ctx.as_of, "deposits": deposits}
 
 
 def account_deposit_details_csv(user_id: uuid.UUID, account_id: uuid.UUID) -> str:
@@ -272,7 +389,7 @@ def dashboard(user_id: uuid.UUID) -> dict:
             summary = simulate_lots(
                 ctx.flows, ctx.rates, account.cdi_percent, ctx.start, ctx.end
             )
-        results.append((account, ctx.end, summary))
+        results.append((account, ctx.as_of, summary))
 
     names = [field.name for field in fields(TaxSummary)]
     totals = {
@@ -289,6 +406,7 @@ def dashboard(user_id: uuid.UUID) -> dict:
                 "account_id": account.id,
                 "name": account.name,
                 "institution": account.institution,
+                "goal_amount": account.goal_amount,
                 "share_percent": to_cents(share),
                 "gross_balance": to_cents(summary.gross_balance),
                 "net_balance": to_cents(summary.net_balance),

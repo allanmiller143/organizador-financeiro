@@ -37,6 +37,38 @@ def get_summary(client, headers, account_id):
     return client.get(f"/api/accounts/{account_id}/summary", headers=headers)
 
 
+def test_today_deposit_counts_before_interest_update_and_can_be_withdrawn(
+    client, auth_headers, monkeypatch
+):
+    from app.services import report_service, transaction_service
+
+    today = date(2025, 1, 21)
+    monkeypatch.setattr(report_service, "today_brazil", lambda: today)
+    monkeypatch.setattr(transaction_service, "today_brazil", lambda: today)
+    add_cdi(15, 16, 17, 20)  # último rendimento calculado: ontem
+    account_id = new_account(client, auth_headers)
+
+    aporte = deposit(client, auth_headers, account_id, today.isoformat(), "500.00")
+    assert aporte.status_code == 201
+    after_deposit = get_summary(client, auth_headers, account_id).get_json()["summary"]
+    assert after_deposit["as_of"] == "2025-01-20"
+    assert Decimal(after_deposit["gross_balance"]) == Decimal("500.00")
+
+    retirada = client.post(
+        f"/api/accounts/{account_id}/transactions",
+        json={
+            "kind": "WITHDRAWAL",
+            "amount": "5.00",
+            "occurred_on": today.isoformat(),
+        },
+        headers=auth_headers,
+    )
+    assert retirada.status_code == 201
+    after_withdrawal = get_summary(client, auth_headers, account_id).get_json()["summary"]
+    assert after_withdrawal["as_of"] == "2025-01-20"
+    assert Decimal(after_withdrawal["gross_balance"]) == Decimal("495.00")
+
+
 def test_summary_gross_tax_and_net(client, auth_headers):
     add_cdi(15, 16, 17, 20, 21)
     account_id = new_account(client, auth_headers)
@@ -179,7 +211,7 @@ def test_history_csv_preserves_manual_same_day_order(client, auth_headers):
     assert rows[2].split(";") == ["2025-01-15", "aporte", "100.00"]
 
 
-def test_new_same_day_transactions_appear_newest_first(client, auth_headers):
+def test_new_same_day_transactions_appear_in_registration_order(client, auth_headers):
     add_cdi(15)
     account_id = new_account(client, auth_headers)
     deposit(client, auth_headers, account_id, "2025-01-15", "100.00")
@@ -188,7 +220,7 @@ def test_new_same_day_transactions_appear_newest_first(client, auth_headers):
 
     response = client.get(f"/api/accounts/{account_id}/transactions", headers=auth_headers)
     assert [row["amount"] for row in response.get_json()["transactions"]] == [
-        "300.00",
-        "200.00",
         "100.00",
+        "200.00",
+        "300.00",
     ]

@@ -92,7 +92,7 @@ A consequência importante é:
 - uma retirada do próprio dia não recebe o rendimento daquele dia;
 - o saldo que não foi retirado recebe o rendimento do dia.
 
-Se uma retirada aparece antes de um aporte na mesma data, ela não pode consumir aquele aporte. Por isso `sequence` é usado para impedir que um lançamento posterior seja usado por uma retirada anterior.
+Os lançamentos do mesmo dia seguem a ordem em que foram cadastrados (ou a ordem manual escolhida pelo usuário). Assim, um aporte registrado antes de uma retirada fica disponível para ela; uma retirada registrada primeiro não pode consumir um aporte posterior.
 
 ## 5. Retiradas são valores líquidos
 
@@ -105,13 +105,13 @@ fração_de_rendimento = max(V - P, 0) / V
 custo = fração_de_rendimento × [IOF + (1 - IOF) × IR]
 ```
 
-O valor bruto necessário para entregar um líquido `L` é aproximado por:
+O valor bruto inicial necessário para entregar um líquido `L` é estimado por:
 
 ```text
 bruto_do_resgate = L / (1 - custo)
 ```
 
-Depois o lote é reduzido proporcionalmente:
+Como o Nubank liquida cada lote em centavos, o motor ajusta esse bruto para o menor valor em centavos cujo líquido (após os impostos daquele resgate) cobre o restante pedido. Depois o lote é reduzido proporcionalmente:
 
 ```text
 principal_removido = principal × bruto_do_resgate / valor
@@ -125,7 +125,7 @@ IOF = rendimento_resgatado × alíquota_IOF
 IR = (rendimento_resgatado - IOF) × alíquota_IR
 ```
 
-A retirada líquida registrada é o valor pedido pelo usuário, arredondado para exibição. Essa decisão corrigiu casos em que o Nubank retirava, por exemplo, R$ 301,13 para consumir integralmente um lote iniciado em R$ 300,00, mas o motor deixava centavos artificiais.
+O motor recalcula IR e IOF por parcela de lote e trunca cada retenção a centavos, conforme as linhas do extrato RDB. A alocação do lote é recalculada após cada parcela; se um lote não cobre o líquido restante, o algoritmo continua no próximo. Resíduos reais não são apagados por uma tolerância genérica: o extrato confirmou saldos de R$ 0,01 e R$ 0,05 que reaparecem em retiradas posteriores.
 
 ## 6. Tabela de IOF e IR
 
@@ -146,16 +146,16 @@ A idade é calculada em dias corridos entre a data do aporte ou reaplicação e 
 
 A retirada não é FIFO nem LIFO puro. O lote escolhido é o que possui menor custo tributário relativo por real sacado, considerando IR e IOF.
 
-A ordenação usada é:
+Para cada lote elegível, calcula-se a parcela possível naquele momento, com os impostos arredondados da operação. O motor então compara o custo efetivo `(IR + IOF) / valor bruto` dessa parcela e escolhe o menor. Depois de atualizar o lote, recalcula as alternativas para o saldo líquido ainda pendente.
+
+Em igualdade do custo calculado, a ordenação determinística usada é:
 
 ```text
-1. menor custo tributário normalizado;
-2. data de início mais recente;
-3. maior valor atual do lote;
+1. menor custo efetivo por parcela;
+2. maior valor atual do lote;
+3. data de início mais recente;
 4. sequência operacional mais recente.
 ```
-
-O custo é normalizado em alta precisão antes da comparação para evitar que resíduos muito pequenos do CDI decidam um quase-empate.
 
 Lotes travados ficam fora da seleção enquanto a trava estiver ativa.
 
@@ -194,7 +194,7 @@ Quando vários aportes vencem no mesmo dia, usa-se `reinvestment_order` se houve
 
 ## 9. Arredondamento e precisão
 
-A regra geral é manter `Decimal` com precisão interna durante o máximo possível e arredondar para centavos apenas na apresentação ou nos pontos em que um valor operacional é criado:
+A regra geral é manter `Decimal` com precisão interna para o rendimento composto. As retiradas são um ponto operacional separado: o valor bruto de cada resgate é determinado em centavos e IR/IOF de cada parcela são truncados a centavos, reproduzindo os registros do extrato. Outros valores só são arredondados para centavos na apresentação ou quando um valor operacional é criado:
 
 - valores exibidos;
 - impostos pagos ou estimados apresentados;
@@ -203,13 +203,11 @@ A regra geral é manter `Decimal` com precisão interna durante o máximo possí
 
 Não se deve arredondar o saldo diariamente sem evidência, porque isso altera o rendimento composto e pode criar diferenças maiores.
 
-Existe uma tolerância para reconhecer que um lote foi integralmente consumido quando a diferença está dentro da faixa de exibição. O lote é zerado, mas o motor não deve registrar a tolerância como dinheiro adicional recebido pelo usuário.
-
-Essa área ainda pode gerar diferenças residuais de centavos em relação ao Nubank. Não é correto aplicar automaticamente `+R$ 0,01` a todas as reaplicações: alguns casos já coincidem e outros podem ficar errados.
+Não existe mais uma tolerância genérica para zerar lotes próximos do valor da retirada. Um resíduo pequeno pode ser um saldo financeiro real, como os R$ 0,01 e R$ 0,05 observados no extrato e resgatados em datas posteriores. A nova referência está em `backend/tests/test_rdb_statement_reference.py`.
 
 ## 10. Ordem dos lançamentos
 
-A ordem padrão dos novos lançamentos no mesmo dia é a ordem de cadastro mais recente primeiro na interface e na sequência operacional. A ordem é persistida em `sort_order`.
+Novos lançamentos do mesmo dia são anexados à sequência cronológica de cadastro; a ordem é persistida em `sort_order` e usada tanto na tela quanto no motor. Isso permite cadastrar um aporte e, em seguida, uma retirada no mesmo dia.
 
 A ordem manual feita por arrastar os cards deve ser enviada ao backend e usada por:
 
@@ -229,7 +227,7 @@ Para dados antigos que não possuíam `sort_order`, a migração cria uma ordem 
 
 ## 11. Detalhes por depósito
 
-O serviço `deposit_detail_service.py` repete a simulação por lote para mostrar apenas os lotes ainda ativos.
+O serviço `deposit_detail_service.py` usa o mesmo alocador do motor agregado para mostrar os lotes ainda ativos e as parcelas de cada retirada. Isso evita divergência entre o saldo geral e o detalhamento.
 
 O detalhe de cada lote pode conter:
 
@@ -278,12 +276,12 @@ Uma implementação independente pode seguir este roteiro:
 3. Percorrer cada data civil até a data final.
 4. Inserir aportes do dia.
 5. Processar retiradas do dia em ordem, ignorando lotes travados e lotes posteriores na mesma data.
-6. Para cada retirada, ordenar lotes pelo custo tributário relativo.
-7. Converter o valor líquido solicitado em valor bruto e reduzir principal, investido e valor proporcionalmente.
+6. Para cada retirada, estimar a parcela em centavos de cada lote e comparar o custo tributário efetivo `(IR + IOF) / bruto`.
+7. Aplicar a parcela menos custosa, atualizar principal, investido e valor proporcionalmente e repetir até cobrir o líquido solicitado.
 8. Aplicar o CDI somente ao saldo restante em dias com taxa disponível.
 9. Fechar lotes vencidos, pagar IR e criar lotes de reaplicação.
-10. Arredondar somente nos pontos operacionais e na apresentação.
-11. Gerar o resumo e, separadamente, o detalhamento por lote.
+10. Truncar IR e IOF por resgate a centavos e preservar resíduos reais do lote.
+11. Gerar o resumo e o detalhamento por lote usando o mesmo alocador.
 12. Comparar os dois resultados para garantir que resumo, drawer e CSV não divergem.
 
 ## 14. O que ainda precisa de ajuste

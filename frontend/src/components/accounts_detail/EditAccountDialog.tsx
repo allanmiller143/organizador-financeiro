@@ -19,6 +19,7 @@ function EditAccountForm({ account, onClose }: EditFormProps) {
   const edit = useUpdateAccount()
   const [name, setName] = useState(account.name)
   const [institution, setInstitution] = useState(account.institution)
+  const [goalAmount, setGoalAmount] = useState(account.goal_amount ?? '')
 
   // Estado derivado: os erros saem direto do erro da gravação.
   const errors = edit.error ? toFormErrors(edit.error) : noErrors
@@ -26,7 +27,10 @@ function EditAccountForm({ account, onClose }: EditFormProps) {
   async function handleSave(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
     try {
-      await edit.mutateAsync({ id: account.id, data: { name, institution } })
+      await edit.mutateAsync({
+        id: account.id,
+        data: { name, institution, goal_amount: goalAmount || null },
+      })
       onClose() // deu certo: fecha o dialog
     } catch {
       // o erro já ficou em edit.error e aparece embaixo dos campos
@@ -51,6 +55,17 @@ function EditAccountForm({ account, onClose }: EditFormProps) {
           value={institution}
           onChange={(e) => setInstitution(e.target.value)}
           error={errors.fields.institution}
+        />
+        <Field
+          label="Meta de valor (opcional)"
+          name="goal_amount"
+          type="number"
+          min="0.01"
+          step="0.01"
+          hint="Deixe em branco para remover a meta."
+          value={goalAmount}
+          onChange={(e) => setGoalAmount(e.target.value)}
+          error={errors.fields.goal_amount}
         />
       </div>
 

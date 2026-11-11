@@ -31,15 +31,14 @@ Estas são as regras implementadas em `backend/app/services/tax_engine.py` e val
 - `deposited_total` / "Total depositado" = soma de todos os aportes já feitos.
 
 ## Retiradas
-- O valor informado em uma retirada é o valor líquido recebido pelo usuário. O motor converte esse valor para o resgate bruto do lote, calcula IOF e IR sobre o rendimento resgatado e reduz o saldo pelo bruto correspondente.
-- Quando o valor líquido informado coincide, dentro da precisão de exibição, com o saldo líquido do lote, o lote é encerrado integralmente; não fica um resíduo artificial de centavos.
-- Não é FIFO nem LIFO. Sai primeiro do lote com **menor imposto por real sacado, contando IR + IOF**:
-  `(rendimento / valor do lote) x (IOF + (1 - IOF) x IR)`, com IOF e IR pela idade do lote no dia.
-  O custo é normalizado antes da comparação para que resíduos infinitesimais da precisão do CDI não decidam um quase-empate. Depois, o desempate é determinístico: data mais nova, maior saldo do lote e sequência mais nova. Lotes trancados ficam fora.
+- O valor informado em uma retirada é o valor líquido recebido pelo usuário. O motor determina o valor bruto em centavos, calcula IR e IOF da parcela resgatada e reduz o saldo pelo bruto correspondente.
+- IR e IOF são truncados a centavos por parcela/lote, e o custo efetivo `(IR + IOF) / valor bruto` é recalculado após cada parcela. Se um lote não cobre o líquido restante, o motor continua no próximo.
+- Não é FIFO nem LIFO. O motor prioriza o lote com **menor custo tributário relativo por real sacado, contando IR + IOF**. Em empate, usa valor atual maior, data mais nova e sequência mais recente. Lotes trancados ficam fora.
+- Resíduos pequenos não são eliminados por tolerância genérica: podem ser saldos reais e reaparecer como resgate posterior. O extrato RDB validou resíduos de R$ 0,01 e R$ 0,05.
 - Por que o IOF entra: lotes com menos de 30 dias têm IOF alto sobre o rendimento, então um lote
-  mais velho (IOF já baixo) pode sair mais barato mesmo tendo rendido mais. Calibrado com uma
-  caixinha real do Nubank (120% do CDI): a 1ª retirada saiu do depósito mais novo, as seguintes
-  do mais antigo. Coberto por `tests/test_deposit_details.py`.
+  mais velho (IOF já baixo) pode sair mais barato mesmo tendo rendido mais. O comportamento e os
+  arredondamentos por lote foram comparados com um extrato RDB real; veja
+  `tests/test_rdb_statement_reference.py` e `docs/alocacao-de-retiradas.md`.
 - Se só houver dinheiro trancado, a retirada é recusada e o aviso diz quanto está trancado.
 - Na aba de depósitos, "Rendimento bruto" é o rendimento total do depósito, **incluindo a parte
   que já saiu em retiradas** (igual ao Nubank). O IR e o IOF mostrados também são totais.

@@ -5,7 +5,7 @@ from flask_jwt_extended import get_jwt_identity, jwt_required
 
 from app.models import Account
 from app.schemas.account import AccountIn, AccountOut, AccountUpdate
-from app.services import account_service
+from app.services import account_service, report_service
 
 bp = Blueprint("accounts", __name__)
 
@@ -46,6 +46,12 @@ def update_account(account_id):
     changes = data.model_dump(exclude_unset=True)
     account = account_service.update_account(_user_id(), account_id, changes)
     return jsonify(account=_json(account))
+
+
+@bp.get("/<uuid:account_id>/goal-forecast")
+@jwt_required()
+def goal_forecast(account_id):
+    return jsonify(forecast=report_service.account_goal_forecast(_user_id(), account_id))
 
 
 @bp.delete("/<uuid:account_id>")

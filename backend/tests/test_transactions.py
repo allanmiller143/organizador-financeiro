@@ -110,7 +110,7 @@ def test_list_newest_first(client, auth_headers):
     assert dates == ["2025-03-10", "2025-02-10"]
 
 
-def test_same_day_transactions_show_newest_registration_first(client, auth_headers):
+def test_same_day_transactions_keep_registration_order(client, auth_headers):
     account_id = new_account(client, auth_headers)
     first = add(client, auth_headers, account_id, amount="840.00").get_json()["transaction"]
     second = add(client, auth_headers, account_id, amount="160.00").get_json()["transaction"]
@@ -120,7 +120,7 @@ def test_same_day_transactions_show_newest_registration_first(client, auth_heade
         item for item in response.get_json()["transactions"] if item["occurred_on"] == TX["occurred_on"]
     ]
 
-    assert [item["id"] for item in same_day[:2]] == [second["id"], first["id"]]
+    assert [item["id"] for item in same_day[:2]] == [first["id"], second["id"]]
 
 
 def test_reorder_same_day_preserves_mixed_deposit_withdrawal_order(client, auth_headers):

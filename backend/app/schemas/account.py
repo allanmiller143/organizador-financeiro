@@ -9,6 +9,7 @@ class AccountIn(BaseModel):
     name: str = Field(min_length=1, max_length=120)
     institution: str = Field(min_length=1, max_length=120)
     cdi_percent: Decimal = Field(gt=0, le=500, max_digits=5, decimal_places=2)
+    goal_amount: Decimal | None = Field(default=None, gt=0, max_digits=14, decimal_places=2)
     opened_on: date
 
 
@@ -18,6 +19,7 @@ class AccountUpdate(BaseModel):
     name: str | None = Field(default=None, min_length=1, max_length=120)
     institution: str | None = Field(default=None, min_length=1, max_length=120)
     is_active: bool | None = None
+    goal_amount: Decimal | None = Field(default=None, gt=0, max_digits=14, decimal_places=2)
 
     @field_validator("name", "institution", "is_active")
     @classmethod
@@ -34,5 +36,6 @@ class AccountOut(BaseModel):
     name: str
     institution: str
     cdi_percent: Decimal
+    goal_amount: Decimal | None
     opened_on: date
     is_active: bool

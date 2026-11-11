@@ -119,3 +119,37 @@ def test_ensure_covers_is_off_when_auto_sync_is_disabled(app, fake_bcb):
     cdi_service.ensure_covers(date(2024, 12, 20))  # CDI_AUTO_SYNC é False nos testes
 
     assert len(fake_bcb) == calls_before
+
+
+def test_ensure_fresh_attempts_once_per_day_and_retries_the_next_day(app, monkeypatch):
+    app.config["CDI_AUTO_SYNC"] = True
+    today = date(2026, 11, 11)
+    calls = []
+    monkeypatch.setattr(cdi_service, "today_brazil", lambda: today)
+    monkeypatch.setattr(
+        cdi_service,
+        "fetch_cdi_series",
+        lambda start, end: calls.append((start, end)) or [],
+    )
+
+    cdi_service.ensure_fresh()
+    cdi_service.ensure_fresh()
+    assert len(calls) == 1
+
+    today = date(2026, 11, 12)
+    cdi_service.ensure_fresh()
+    assert len(calls) == 2
+
+
+def test_manual_cdi_sync_returns_latest_date(client, auth_headers, monkeypatch):
+    latest = date(2026, 11, 10)
+    monkeypatch.setattr(cdi_service, "sync_cdi_now", lambda: (0, latest))
+
+    response = client.post("/api/cdi/sync", headers=auth_headers)
+
+    assert response.status_code == 200
+    assert response.get_json() == {
+        "inserted": 0,
+        "latest_date": "2026-11-10",
+        "message": "Não há novos dados publicados pelo Banco Central no momento.",
+    }

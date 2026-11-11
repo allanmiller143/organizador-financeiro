@@ -94,6 +94,7 @@ class DashboardAccount(BaseModel):
     account_id: uuid.UUID
     name: str
     institution: str
+    goal_amount: Decimal | None
     share_percent: Decimal
     gross_balance: Decimal
     net_balance: Decimal

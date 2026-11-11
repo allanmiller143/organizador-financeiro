@@ -67,6 +67,7 @@ export default function AccountsPage() {
               key={account.id}
               account={account}
               balance={balances.get(account.id)}
+              netBalance={dashboard.data?.accounts.find((a) => a.account_id === account.id)?.net_balance}
               onDelete={() => handleDelete(account)}
               disabled={deleteAccount.isPending}
             />

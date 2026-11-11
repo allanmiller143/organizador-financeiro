@@ -71,6 +71,8 @@ export function AccountsCard({ accounts }: { accounts: Account[] }) {
                     <p className="font-medium tabular-nums text-slate-900">
                       {formatMoney(account.gross_balance)}
                     </p>
+                    <p className="text-xs text-slate-500">Saldo liquido: {formatMoney(account.net_balance)}</p>
+
                     <p className="text-xs text-slate-500">
                       {formatPercent(account.share_percent)} do total
                     </p>

@@ -56,6 +56,19 @@ def test_dashboard_totals_and_shares(client, auth_headers):
     assert shares == {"A": Decimal("25.00"), "B": Decimal("75.00")}
 
 
+def test_dashboard_includes_optional_account_goal(client, auth_headers):
+    add_cdi(15, 16, 17, 20, 21)
+    account_id = client.post(
+        "/api/accounts", json={**ACCOUNT, "goal_amount": "2000.00"}, headers=auth_headers
+    ).get_json()["account"]["id"]
+    deposit(client, auth_headers, account_id, "1000.00")
+
+    response = get_dashboard(client, auth_headers)
+
+    assert response.status_code == 200
+    assert Decimal(response.get_json()["dashboard"]["accounts"][0]["goal_amount"]) == Decimal("2000.00")
+
+
 def test_dashboard_without_accounts_is_empty(client, auth_headers):
     response = get_dashboard(client, auth_headers)
 

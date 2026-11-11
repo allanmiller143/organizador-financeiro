@@ -156,81 +156,12 @@ def gross_redemption_for_net(net_amount: Decimal, value: Decimal, principal: Dec
 def _withdraw(
     lots: list[Lot], amount: Decimal, day: date, sequence: int | None = None
 ) -> tuple[Decimal, Decimal]:
-    """Retira primeiro do lote com menor custo de imposto por real líquido recebido.
+    """Aloca o saque por custo tributário recalculado para cada parcela do RDB."""
+    from app.services.withdrawal_allocator import allocate_withdrawal
 
-    Não é FIFO nem LIFO: confirmado com uma caixinha real do Nubank, em que uma
-    retirada de lote novo (IOF alto) saiu do depósito mais novo, e retiradas
-    posteriores saíram do mais antigo (IOF já baixo). O custo é calculado sobre o valor
-    atual do lote (principal restante + rendimento); o resgate bruto é convertido a
-    partir do valor líquido pedido antes de aplicar IR e IOF.
-    Devolve (IR, IOF) retidos.
-    Lotes trancados ficam fora da seleção até o fim da trava. A sequência manual
-    desempata aportes no mesmo dia.
-    """
-    remaining = amount
-    ir_total = Decimal("0")
-    iof_total = Decimal("0")
-    candidates = sorted(
-        [
-            lot
-            for lot in lots
-            if lot.start <= day
-            and not lock_is_active(lot, day)
-            # Um aporte feito depois da retirada no mesmo dia ainda não existia
-            # para aquele resgate, embora possa render no próprio dia.
-            and not (
-                sequence is not None
-                and lot.start == day
-                and lot.sequence > sequence
-            )
-        ],
-        key=lambda lot: (
-            withdrawal_sort_cost(lot.value, lot.principal, (day - lot.start).days),
-            -lot.start.toordinal(),
-            -lot.value,
-            -lot.sequence,
-        ),
-    )
-    for lot in candidates:
-        if remaining <= CENT_TOLERANCE:
-            break
-        age_days = (day - lot.start).days
-        cost = withdrawal_cost(lot.value, lot.principal, age_days)
-        full_net = lot.value * (Decimal("1") - cost)
-        close_displayed_lot = remaining + FULL_REDEMPTION_TOLERANCE >= full_net
-        if close_displayed_lot:
-            # Calcula o bruto para o líquido pedido, mas descarta o resíduo
-            # subcentavo exibido como lote zerado. Assim não contabilizamos
-            # como saque um valor maior que o usuário efetivamente recebeu.
-            take = min(
-                gross_redemption_for_net(remaining, lot.value, lot.principal, age_days),
-                lot.value,
-            )
-        else:
-            take = min(gross_redemption_for_net(remaining, lot.value, lot.principal, age_days), lot.value)
-        principal_out = lot.principal * (take / lot.value)
-        invested_out = lot.invested * (take / lot.value)
-        yield_out = take - principal_out
-        ir, iof = redemption_taxes(yield_out, age_days)
-        net_taken = take - ir - iof
-        ir_total += ir
-        iof_total += iof
-        lot.principal -= principal_out
-        lot.invested -= invested_out
-        lot.value -= take
-        remaining -= net_taken
-        if close_displayed_lot:
-            lot.principal = Decimal("0")
-            lot.invested = Decimal("0")
-            lot.value = Decimal("0")
-
-    if remaining > CENT_TOLERANCE:
-        locked_amount = sum(
-            (lot.value for lot in lots if lock_is_active(lot, day)), Decimal("0")
-        )
-        raise InsufficientBalanceError(day, remaining, locked_amount)
-
-    lots[:] = [lot for lot in lots if lot.value > CENT_TOLERANCE]  # descarta lotes zerados
+    allocations = allocate_withdrawal(lots, amount, day, sequence)
+    ir_total = sum((item.income_tax for item in allocations), Decimal("0"))
+    iof_total = sum((item.iof for item in allocations), Decimal("0"))
     return ir_total, iof_total
 
 

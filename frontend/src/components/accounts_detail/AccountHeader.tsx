@@ -20,6 +20,7 @@ import { ErrorMessage } from '../ErrorMessage'
 import { EditAccountDialog } from './EditAccountDialog'
 import { yieldPercentLabel } from './helpers'
 import type { SummaryQuery } from './types'
+import { GoalProgress } from './GoalProgress'
 
 type AccountHeaderProps = {
   account: Account
@@ -157,7 +158,15 @@ export function AccountHeader({ account, summary, onNewTransaction }: AccountHea
             </div>
           </div>
         </div>
+        {account.goal_amount && Number(account.goal_amount) > 0 && data && (
+          <GoalProgress
+            accountId={account.id}
+            goalAmount={account.goal_amount}
+            netBalance={data.net_balance}
+          />
+        )}
       </section>
+      
 
       {archive.isError && <ErrorMessage message={describeError(archive.error)} />}
 

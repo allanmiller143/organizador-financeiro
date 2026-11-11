@@ -152,12 +152,12 @@ def test_partial_withdrawal_takes_proportional_principal():
     summary = simulate_lots(flows, RATES, HUNDRED, START, date(2025, 1, 7))
 
     # O saque é fechado antes do CDI do dia 07/01; o saldo que permanece rende depois.
-    assert summary.gross_balance == Decimal("505.1091471643790424968259840")
-    assert summary.invested == Decimal("495.1565014845397926642740750")
-    assert summary.iof_paid == Decimal("4.846497585748417990422968832")
-    assert summary.tax_paid == Decimal("4.891933500614809409083184165")
-    assert summary.gross_yield == Decimal("9.9526456798392498325519090")
-    assert summary.net_balance == Decimal("495.4650335006148094090831842")
+    assert summary.gross_balance == Decimal("505.1212")
+    assert summary.invested == Decimal("495.1683168316831683168316832")
+    assert summary.iof_paid == Decimal("4.84")
+    assert summary.tax_paid == Decimal("4.88")
+    assert summary.gross_yield == Decimal("9.9528831683168316831683168")
+    assert summary.net_balance == Decimal("495.4768562099009900990099010")
 
 
 def test_withdrawal_takes_lot_with_lower_tax_first():
@@ -171,12 +171,12 @@ def test_withdrawal_takes_lot_with_lower_tax_first():
 
     # Em 08/01 o lote de 06/01 vale 1020,10 (IOF 93%) e o de 07/01 vale 1010 (IOF 96%),
     # mas o de 07/01 rendeu proporcionalmente menos e por isso o imposto por real é menor.
-    assert summary.tax_paid == Decimal("9.874002141215165453210682740")
-    assert summary.iof_paid == Decimal("9.780937870822208693085841870")
-    assert summary.gross_balance == Decimal("1020.328257837372682892257210")
-    assert summary.invested == Decimal("990.3205547091312955070966741")
-    assert summary.tax_estimated == Decimal("28.37978523353429211951557683")
-    assert summary.net_balance == Decimal("991.9484726038383907727416332")
+    assert summary.tax_paid == Decimal("9.87")
+    assert summary.iof_paid == Decimal("9.78")
+    assert summary.gross_balance == Decimal("1020.332300")
+    assert summary.invested == Decimal("990.3244779923536908146260171")
+    assert summary.tax_estimated == Decimal("28.37989766373149691206744433")
+    assert summary.net_balance == Decimal("991.9524023362685030879325557")
 
 
 def test_withdrawal_above_balance_raises():
@@ -198,9 +198,9 @@ def test_withdrawal_prefers_lot_with_lower_tax_per_real():
 
     # O lote novo tem rendimento proporcional menor e é resgatado antes.
     assert len(lots) == 1
-    assert lots[0].value == Decimal("1199.212820512820512820512821")
+    assert lots[0].value == Decimal("1199.23")
     assert iof == Decimal("0.70")  # idade 9: IOF de 70% sobre 1 de rendimento
-    assert ir == Decimal("0.08717948717948717948717948718")
+    assert ir == Decimal("0.07")
 
 
 def test_same_day_deposits_create_individual_reapplications():

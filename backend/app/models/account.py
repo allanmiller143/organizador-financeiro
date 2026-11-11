@@ -18,6 +18,7 @@ class Account(db.Model):
     name: Mapped[str] = mapped_column(String(120))
     institution: Mapped[str] = mapped_column(String(120))
     cdi_percent: Mapped[Decimal] = mapped_column(Numeric(6, 2))  # ex.: 110.00
+    goal_amount: Mapped[Decimal | None] = mapped_column(Numeric(14, 2), nullable=True)
     opened_on: Mapped[date] = mapped_column(Date)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
 

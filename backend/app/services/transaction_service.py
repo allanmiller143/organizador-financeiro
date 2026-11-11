@@ -84,8 +84,8 @@ def list_transactions(
         stmt = stmt.where(Transaction.occurred_on >= date_from)
     if date_to is not None:
         stmt = stmt.where(Transaction.occurred_on <= date_to)
-    # Para lançamentos no mesmo dia, preserve a ordem de inserção aproximada
-    # usada pelo histórico legado, em vez de inverter os lotes pelo UUID.
+    # sort_order crescente representa a ordem operacional registrada dentro
+    # do dia; não inverta a sequência pelo UUID.
     stmt = stmt.order_by(
         Transaction.occurred_on.desc(),
         Transaction.sort_order.asc().nullslast(),
@@ -103,19 +103,18 @@ def create_transaction(
         account, data["kind"], data.get("locked", False), data.get("term_months", 24), data
     )
 
-    # O lançamento mais recente do dia aparece no topo. Não use a ordem da
-    # caixinha inteira: lançamentos de outras datas não devem interferir na
-    # sequência visual/operacional deste dia. Usar um índice menor preserva
-    # também a mesma prioridade no motor, que ordena sort_order crescente.
-    current_min = db.session.scalar(
-        select(func.min(Transaction.sort_order)).where(
+    # A sequência do dia é cronológica: se o usuário registra um aporte e
+    # depois uma retirada, o aporte deve estar disponível à retirada. Novos
+    # lançamentos são anexados ao fim da ordem operacional daquele dia.
+    current_max = db.session.scalar(
+        select(func.max(Transaction.sort_order)).where(
             Transaction.account_id == account.id,
             Transaction.occurred_on == data["occurred_on"],
         )
     )
     transaction = Transaction(
         account_id=account.id,
-        sort_order=(current_min - 1 if current_min is not None else 0),
+        sort_order=(current_max + 1 if current_max is not None else 0),
         **data,
     )
     db.session.add(transaction)

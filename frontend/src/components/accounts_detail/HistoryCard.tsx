@@ -101,6 +101,21 @@ export function HistoryCard({
     if (filter === 'reapplication') return entry.type === 'reapplication'
     return entry.type === 'transaction' && entry.transaction.kind === filter.toUpperCase()
   })
+
+  const filterOptions = ([
+    { value: 'all', label: 'Tudo', count: entries.length },
+    { value: 'deposit', label: 'Aportes', count: deposits },
+    { value: 'withdrawal', label: 'Retiradas', count: withdrawals },
+    { value: 'reapplication', label: 'Reaplicações', count: reapplications },
+  ] satisfies { value: HistoryFilter; label: string; count: number }[]).filter(
+    (option) => option.value === 'all' || option.count > 0 || option.value === filter,
+  )
+
+  function selectFilter(value: HistoryFilter) {
+    setFilter(value)
+    setExpanded(value === 'reapplication')
+  }
+
   function handleReorder(kind: 'transaction' | 'reapplication', occurredOn: string, visibleIds: string[]) {
     if (kind === 'reapplication') {
       const allIds = (monthly.data?.months ?? [])
@@ -202,23 +217,33 @@ export function HistoryCard({
               )}
             </div>
 
-            <label className="mb-3 flex items-center gap-2 text-sm text-slate-600">
-              <span>Mostrar</span>
-              <select
-                aria-label="Filtrar histórico"
-                value={filter}
-                onChange={(event) => {
-                  setFilter(event.target.value as HistoryFilter)
-                  setExpanded(event.target.value === 'reapplication')
-                }}
-                className="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm text-slate-700 focus:border-teal-500 focus:outline-none focus:ring-2 focus:ring-teal-500/20"
-              >
-                <option value="all">Tudo</option>
-                <option value="deposit">Aportes</option>
-                <option value="withdrawal">Retiradas</option>
-                <option value="reapplication">Reaplicações</option>
-              </select>
-            </label>
+            <div role="group" aria-label="Filtrar histórico" className="mb-4 flex flex-wrap gap-1.5">
+              {filterOptions.map((option) => {
+                const active = filter === option.value
+                return (
+                  <button
+                    key={option.value}
+                    type="button"
+                    aria-pressed={active}
+                    onClick={() => selectFilter(option.value)}
+                    className={`inline-flex cursor-pointer items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-500 ${
+                      active
+                        ? 'bg-teal-600 text-white shadow-sm'
+                        : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                    }`}
+                  >
+                    {option.label}
+                    <span
+                      className={`rounded-full px-1.5 text-[11px] tabular-nums ${
+                        active ? 'bg-white/25 text-white' : 'bg-white text-slate-500'
+                      }`}
+                    >
+                      {option.count}
+                    </span>
+                  </button>
+                )
+              })}
+            </div>
 
             {/* Expandido: a lista rola dentro do cartão, para não ficar enorme */}
             {filteredEntries.length === 0 ? (
@@ -258,18 +283,20 @@ export function HistoryCard({
             )}
 
             {canExpand && (
-              <button
-                type="button"
-                onClick={() => setExpanded((value) => !value)}
-                aria-expanded={expanded}
-                className="mt-3 flex w-full cursor-pointer items-center justify-center gap-1.5 rounded-xl py-2 text-sm font-medium text-teal-700 transition hover:bg-teal-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-500"
-              >
-                {expanded ? 'Mostrar menos' : `Ver todos os ${filteredEntries.length} lançamentos`}
-                <ChevronDown
-                  size={16}
-                  className={`transition-transform ${expanded ? 'rotate-180' : ''}`}
-                />
-              </button>
+              <div className="mt-3 flex justify-center">
+                <button
+                  type="button"
+                  onClick={() => setExpanded((value) => !value)}
+                  aria-expanded={expanded}
+                  className="inline-flex cursor-pointer items-center gap-1.5 rounded-full px-4 py-1.5 text-sm font-medium text-teal-700 ring-1 ring-teal-200 transition hover:bg-teal-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-500"
+                >
+                  {expanded ? 'Mostrar menos' : `Ver todos (${filteredEntries.length})`}
+                  <ChevronDown
+                    size={16}
+                    className={`transition-transform ${expanded ? 'rotate-180' : ''}`}
+                  />
+                </button>
+              </div>
             )}
           </>
         )}

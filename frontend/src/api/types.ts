@@ -38,6 +38,7 @@ export type DashboardAccount = {
   account_id: string
   name: string
   institution: string
+  goal_amount: string | null
   share_percent: string
   gross_balance: string
   net_balance: string
@@ -51,10 +52,14 @@ export type Dashboard = {
 }
 
 export type Account = {
+  net_balance: string
+  gross_balance: string
+  account_id: string
   id: string
   name: string
   institution: string
   cdi_percent: string 
+  goal_amount: string | null
   opened_on: string 
   is_active: boolean
 }
@@ -63,6 +68,7 @@ export type AccountInput = {
   name: string
   institution: string
   cdi_percent: string
+  goal_amount: string | null
   opened_on: string
 }
 
@@ -211,4 +217,14 @@ export type AccountUpdate = {
   name?: string
   institution?: string
   is_active?: boolean
+  goal_amount?: string | null
+}
+
+export type GoalForecast = {
+  status: 'reached' | 'no_balance' | 'no_growth' | 'projected'
+  months: number | null
+  balance: string
+  goal_amount: string
+  projected_date: string | null
+  assumption: string
 }

@@ -20,6 +20,24 @@ def test_create_account(client, auth_headers):
     assert body["name"] == ACCOUNT["name"]
     assert Decimal(body["cdi_percent"]) == Decimal("100")
     assert body["is_active"] is True
+    assert body["goal_amount"] is None
+
+
+def test_create_and_update_account_goal(client, auth_headers):
+    account_id = create(client, auth_headers, goal_amount="2500.00").get_json()["account"]["id"]
+
+    response = client.get(f"/api/accounts/{account_id}", headers=auth_headers)
+    assert Decimal(response.get_json()["account"]["goal_amount"]) == Decimal("2500.00")
+
+    response = client.patch(
+        f"/api/accounts/{account_id}", json={"goal_amount": "3000.00"}, headers=auth_headers
+    )
+    assert Decimal(response.get_json()["account"]["goal_amount"]) == Decimal("3000.00")
+
+    response = client.patch(
+        f"/api/accounts/{account_id}", json={"goal_amount": None}, headers=auth_headers
+    )
+    assert response.get_json()["account"]["goal_amount"] is None
 
 
 def test_create_requires_token(client):

@@ -107,7 +107,7 @@ def test_fully_withdrawn_lot_is_not_listed_in_deposit_details():
     assert calculate_deposit_details(flows, rates, BASE, start, end) == []
 
 
-def test_net_full_withdrawal_does_not_leave_display_rounding_residue():
+def test_withdrawal_preserves_real_cent_residue_until_a_later_redemption():
     start = date(2026, 8, 16)
     withdrawal_day = date(2026, 9, 3)
     rates = {
@@ -120,7 +120,12 @@ def test_net_full_withdrawal_does_not_leave_display_rounding_residue():
         Flow(withdrawal_day, Decimal("-301.13"), sequence=1),
     ]
 
-    assert calculate_deposit_details(flows, rates, BASE, start, withdrawal_day) == []
+    details = calculate_deposit_details(flows, rates, BASE, start, withdrawal_day)
+
+    # Não apaga diferença de centavos por tolerância: um saldo pequeno pode
+    # permanecer no RDB e ser resgatado em uma operação posterior.
+    assert len(details) == 1
+    assert details[0]["gross_balance"] == Decimal("0.05")
 
 
 def test_same_day_deposit_details_keep_creation_order_not_amount_order():

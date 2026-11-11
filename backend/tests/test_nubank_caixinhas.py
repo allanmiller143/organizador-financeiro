@@ -1,9 +1,9 @@
 """Caixinhas reais do Nubank (RDB, 120% do CDI) usadas para calibrar a simulação.
 
 CDI de 2026 aproximado em 14,15% a.a. (base 252). Os valores em reais têm tolerância de
-alguns centavos porque o CDI exato varia dia a dia. Lotes de uma mesma data de aplicação
-empatam no impacto (IR + IOF) / valor atual; o desempate é arbitrário e nenhum teste
-depende dele.
+alguns centavos porque o CDI exato varia dia a dia. O motor recalcula o custo efetivo de
+cada parcela em centavos; a correspondência exata com o extrato RDB é protegida em
+`test_rdb_statement_reference.py`.
 """
 
 from datetime import date, timedelta
@@ -220,14 +220,17 @@ def test_caixinha_2_lot_of_september_18th_is_fully_withdrawn_and_disappears():
     assert by_date(_caixinha_2(), date(2026, 9, 18)) == []
 
 
-def test_caixinha_2_withdrawal_of_422_comes_from_the_five_lots_of_september_29th():
+def test_caixinha_2_withdrawal_of_422_consumes_small_lots_then_uses_621_partially():
     details = _caixinha_2()
     lots_0929 = by_date(details, date(2026, 9, 29))
-    total_from_0929 = sum((lot["partial_withdrawals"] for lot in lots_0929), D("0"))
+    by_applied = {lot["applied_amount"]: lot for lot in lots_0929}
 
-    assert total_from_0929 == D("422.00")
-    # IOF pequeno: idade de 29 dias, alíquota de 3%
-    assert D("0") < sum((lot["iof"] for lot in lots_0929), D("0")) < D("0.30")
+    # Os lotes pequenos de R$ 5 e R$ 30 são totalmente encerrados e, portanto,
+    # deixam de aparecer na lista de saldos ativos. O lote de R$ 621 fica parcial.
+    assert D("5.00") not in by_applied and D("30.00") not in by_applied
+    assert by_applied[D("621.00")]["partial_withdrawals"] == D("386.66")
+    assert by_applied[D("300.00")]["partial_withdrawals"] == D("0.00")
+    assert by_applied[D("500.00")]["partial_withdrawals"] == D("0.00")
     # Os lotes de 03/10 e de 14/10 (IOF bem mais alto) não participam desse resgate.
     assert by_date(details, date(2026, 10, 3))[0]["partial_withdrawals"] == D("0.00")
 
@@ -235,7 +238,9 @@ def test_caixinha_2_withdrawal_of_422_comes_from_the_five_lots_of_september_29th
 def test_caixinha_2_withdrawal_of_1000_comes_from_the_lot_of_october_14th():
     lot = by_date(_caixinha_2(), date(2026, 10, 14))[0]
 
-    assert lot["partial_withdrawals"] == D("1000.00")
+    # O lote de 18/09 deixa um pequeno resíduo tributário que também entra no
+    # resgate; o lote de 14/10, portanto, fornece R$ 999,93 líquidos no CDI aproximado.
+    assert lot["partial_withdrawals"] == D("999.93")
     assert [w["occurred_on"] for w in lot["withdrawals"]] == [date(2026, 10, 18)]
 
 

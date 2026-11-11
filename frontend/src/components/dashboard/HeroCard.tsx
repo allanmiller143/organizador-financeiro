@@ -1,7 +1,8 @@
 import { Link } from 'react-router-dom'
-import { Plus, TrendingUp } from 'lucide-react'
+import { Plus, RefreshCw, TrendingUp } from 'lucide-react'
 
 import { formatDate, formatMoney } from '../../lib/format'
+import { useSyncCdi } from '../../hooks/useDashboard'
 import { greeting, summarize } from './helpers'
 import type { DashboardData } from './types'
 
@@ -12,6 +13,7 @@ type HeroCardProps = {
 }
 
 export function HeroCard({ totals, asOf, userName }: HeroCardProps) {
+  const syncCdi = useSyncCdi()
   const { yieldLabel } = summarize(totals)
   const firstName = userName?.trim().split(/\s+/)[0] ?? ''
 
@@ -58,6 +60,15 @@ export function HeroCard({ totals, asOf, userName }: HeroCardProps) {
           </div>
 
           <div className="flex flex-wrap gap-2">
+            <button
+              type="button"
+              onClick={() => syncCdi.mutate()}
+              disabled={syncCdi.isPending}
+              className="inline-flex items-center gap-2 rounded-xl bg-white/15 px-4 py-2.5 text-sm font-semibold text-white ring-1 ring-white/40 transition hover:bg-white/25 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white disabled:cursor-wait disabled:opacity-70"
+            >
+              <RefreshCw size={16} className={syncCdi.isPending ? 'animate-spin' : ''} />
+              {syncCdi.isPending ? 'Atualizando CDI…' : 'Atualizar CDI'}
+            </button>
             <Link
               to="/caixinhas"
               className="inline-flex items-center gap-2 rounded-xl bg-white px-4 py-2.5 text-sm font-semibold text-teal-700 shadow-sm transition hover:bg-teal-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-teal-600"
@@ -74,6 +85,16 @@ export function HeroCard({ totals, asOf, userName }: HeroCardProps) {
             </Link>
           </div>
         </div>
+        {syncCdi.data && (
+          <p role="status" className="text-xs text-white/85">
+            {syncCdi.data.message}{syncCdi.data.latest_date ? ` Último dado: ${formatDate(syncCdi.data.latest_date)}.` : ''}
+          </p>
+        )}
+        {syncCdi.error && (
+          <p role="alert" className="text-xs text-white/90">
+            Não foi possível consultar o Banco Central agora. O NuBox manteve os dados já salvos; tente novamente mais tarde.
+          </p>
+        )}
       </div>
     </section>
   )

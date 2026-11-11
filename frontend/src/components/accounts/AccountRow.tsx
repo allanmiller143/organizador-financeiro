@@ -6,12 +6,13 @@ import { formatCdi, formatDate, formatMoney } from '../../lib/format'
 
 type AccountRowProps = {
   account: Account
-  balance?: string // o saldo bruto, se já foi calculado
+  balance?: string // saldo bruto, se já foi calculado
+  netBalance?: string // saldo líquido, se já foi calculado
   onDelete: () => void
   disabled: boolean
 }
 
-export function AccountRow({ account, balance, onDelete, disabled }: AccountRowProps) {
+export function AccountRow({ account, balance, netBalance, onDelete, disabled }: AccountRowProps) {
   const Icon = account.is_active ? PiggyBank : Archive
 
   return (
@@ -40,9 +41,14 @@ export function AccountRow({ account, balance, onDelete, disabled }: AccountRowP
         </div>
 
         {account.is_active ? (
-          <span className="font-semibold tabular-nums text-slate-900">
-            {balance ? formatMoney(balance) : '—'}
-          </span>
+          <div className="text-right">
+            <p className="font-semibold tabular-nums text-slate-900">
+              {balance ? formatMoney(balance) : '—'}
+            </p>
+            <p className="text-xs tabular-nums text-slate-500">
+              Líquido {netBalance ? formatMoney(netBalance) : '—'}
+            </p>
+          </div>
         ) : (
           <span className="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-600">
             Arquivada

@@ -18,6 +18,7 @@ export function AccountForm({ onDone, onCancel }: AccountFormProps) {
   const [name, setName] = useState('')
   const [institution, setInstitution] = useState('Nubank')
   const [cdiPercent, setCdiPercent] = useState('100')
+  const [goalAmount, setGoalAmount] = useState('')
   const [openedOn, setOpenedOn] = useState('')
   const [errors, setErrors] = useState(noErrors)
 
@@ -29,6 +30,7 @@ export function AccountForm({ onDone, onCancel }: AccountFormProps) {
         name,
         institution,
         cdi_percent: cdiPercent,
+        goal_amount: goalAmount || null,
         opened_on: openedOn,
       })
       onDone() // deu certo: avisa a tela
@@ -78,6 +80,17 @@ export function AccountForm({ onDone, onCancel }: AccountFormProps) {
           value={openedOn}
           onChange={(e) => setOpenedOn(e.target.value)}
           error={errors.fields.opened_on}
+        />
+        <Field
+          label="Meta de valor (opcional)"
+          name="goal_amount"
+          type="number"
+          min="0.01"
+          step="0.01"
+          hint="Acompanhe o progresso e estime o prazo para alcançar a meta."
+          value={goalAmount}
+          onChange={(e) => setGoalAmount(e.target.value)}
+          error={errors.fields.goal_amount}
         />
       </div>
 

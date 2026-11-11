@@ -10,10 +10,6 @@ from app.services.tax_engine import (
     rate_percent,
     redemption_taxes,
     rollover_due_date,
-    withdrawal_cost,
-    gross_redemption_for_net,
-    withdrawal_sort_cost,
-    FULL_REDEMPTION_TOLERANCE,
 )
 from app.services.yield_engine import Flow, check_coverage, daily_yield_rate
 
@@ -58,66 +54,34 @@ def _new_state(flow: Flow) -> DepositDetailState:
 def _withdraw_from_states(
     states: list[DepositDetailState], flow: Flow, day: date
 ) -> list[DepositDetailState]:
-    """Consome os lotes do menor para o maior (IR + IOF) / valor atual."""
-    remaining = -flow.amount
-    candidates = sorted(
-        [
-            state
-            for state in states
-            if state.lot.start <= day
-            and not lock_is_active(state.lot, day)
-            # Um aporte que aparece depois da retirada no histórico
-            # não pode receber aquela retirada no mesmo dia.
-            and not (state.lot.start == day and state.lot.sequence > flow.sequence)
-        ],
-        key=lambda state: (
-            withdrawal_sort_cost(state.lot.value, state.lot.principal, (day - state.lot.start).days),
-            -state.lot.start.toordinal(),
-            -state.lot.value,
-            -state.lot.sequence,
-        ),
+    """Aplica ao detalhamento as mesmas parcelas usadas no motor agregado."""
+    from app.services.withdrawal_allocator import allocate_withdrawal
+
+    state_by_lot = {id(state.lot): state for state in states}
+    allocations = allocate_withdrawal(
+        [state.lot for state in states],
+        -flow.amount,
+        day,
+        flow.sequence,
+        strict=False,
     )
-    for state in candidates:
-        if remaining <= CENT:
-            break
-        lot = state.lot
-        age_days = (day - lot.start).days
-        cost = withdrawal_cost(lot.value, lot.principal, age_days)
-        full_net = lot.value * (Decimal("1") - cost)
-        close_displayed_lot = remaining + FULL_REDEMPTION_TOLERANCE >= full_net
-        # Usa o bruto correspondente ao líquido solicitado. Se a diferença
-        # restante estiver apenas na faixa de exibição, zera o lote sem
-        # contabilizar um valor recebido maior que o saque informado.
-        take = min(
-            gross_redemption_for_net(remaining, lot.value, lot.principal, age_days),
-            lot.value,
-        )
-        principal_out = lot.principal * (take / lot.value)
-        yield_out = take - principal_out
-        ir, iof = redemption_taxes(yield_out, age_days)
-        net_taken = take - ir - iof
-        state.withdrawn += net_taken
-        state.yield_withdrawn += yield_out
-        state.ir_paid += ir
-        state.iof_paid += iof
+    for allocation in allocations:
+        state = state_by_lot[id(allocation.lot)]
+        state.withdrawn += allocation.net_amount
+        state.yield_withdrawn += allocation.yield_out
+        state.ir_paid += allocation.income_tax
+        state.iof_paid += allocation.iof
         state.withdrawals.append(
             {
                 "occurred_on": day,
-                "amount": _money(net_taken),
-                "gross_yield": _money(yield_out),
-                "income_tax": _money(ir),
-                "iof": _money(iof),
-                "net_amount": _money(take - ir - iof),
+                "amount": _money(allocation.net_amount),
+                "gross_amount": _money(allocation.gross_amount),
+                "gross_yield": _money(allocation.yield_out),
+                "income_tax": _money(allocation.income_tax),
+                "iof": _money(allocation.iof),
+                "net_amount": _money(allocation.net_amount),
             }
         )
-        lot.invested -= lot.invested * (take / lot.value)
-        lot.principal -= principal_out
-        lot.value -= take
-        remaining -= net_taken
-        if close_displayed_lot:
-            lot.invested = Decimal("0")
-            lot.principal = Decimal("0")
-            lot.value = Decimal("0")
     return [state for state in states if state.lot.value > CENT]
 
 

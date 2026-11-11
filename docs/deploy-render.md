@@ -14,10 +14,17 @@ Para começar sem configurar DNS, crie uma conta na Brevo, cadastre um endereço
 
 No serviço **Web Service** do backend do Render, configure em **Environment**:
 
+<<<<<<< HEAD
+```
+APP_ENV=production
+BREVO_API_KEY=sua_api_key_da_brevo
+=seu-endereco-confirmado@exemplo.com
+=======
 ```env
 APP_ENV=production
 BREVO_API_KEY=sua_api_key_da_brevo
 BREVO_FROM_EMAIL=seu-endereco-confirmado@exemplo.com
+>>>>>>> 23c98044231914cfaeb9416d70d6c2d557189e8d
 BREVO_FROM_NAME=Organizador Financeiro
 FRONTEND_URL=https://organizador-financeiro-1-9lhc.onrender.com
 PASSWORD_RESET_TOKEN_MINUTES=30
@@ -35,16 +42,31 @@ Em desenvolvimento, `PASSWORD_RESET_DEBUG=true` pode mostrar um link local sem e
 
 Depois de entrar, abra o menu do usuário e escolha **Perfil e segurança**. A página exige a senha atual, valida a nova senha e sua confirmação, e encerra outras sessões após a troca. A sessão atual recebe novos tokens para continuar aberta.
 
+<<<<<<< HEAD
+## Migrations
+
+A migration mais recente adiciona a meta opcional de valor por caixinha. Em contas existentes, o campo começa vazio. Antes de publicar o backend/frontend atualizados, aplique todas as migrations pendentes. No serviço com diretório raiz `backend`, rode:
+=======
 ## Migration
 
 A integração Brevo e a página de perfil não adicionam colunas ao banco. Se a migration de redefinição de senha da versão anterior ainda não foi aplicada, execute-a antes de publicar o backend. No serviço com diretório raiz `backend`, rode:
+>>>>>>> 23c98044231914cfaeb9416d70d6c2d557189e8d
 
 ```bash
 flask --app wsgi db upgrade
 ```
 
+<<<<<<< HEAD
+Se o diretório raiz do serviço for a raiz do repositório, execute `cd backend && flask --app wsgi db upgrade`. Aplique como comando de pré-deploy ou antes de trocar para o novo backend; confirme que `DATABASE_URL` aponta para o banco publicado. A versão inclui também as migrations anteriores de autenticação e ordenação.
+
+## Atualização diária do CDI
+
+Com `CDI_AUTO_SYNC=true` (padrão em produção), o carregamento do dashboard tenta consultar a série SGS 12 do Banco Central uma vez por dia por processo. Há também um botão **Atualizar CDI** no painel; se não houver dados novos, a interface informa a última data armazenada sem tratar isso como erro. Falhas na consulta preservam as taxas já gravadas. O CDI não é extrapolado para datas sem publicação: o saldo principal e vencimentos/reaplicações são processados mesmo quando a taxa do dia ainda não está disponível.
+
+=======
 Se o diretório raiz do serviço for a raiz do repositório, execute `cd backend && flask --app wsgi db upgrade`. Aplique como comando de pré-deploy ou antes de trocar para o novo backend; confirme que `DATABASE_URL` aponta para o banco publicado.
 
+>>>>>>> 23c98044231914cfaeb9416d70d6c2d557189e8d
 ## Erros de rede
 
 O frontend converte falhas de conexão ou timeout em uma mensagem recuperável, preserva tokens locais durante falhas transitórias na inicialização e não exibe a exceção bruta do navegador. Erros do provedor são registrados no backend sem registrar a chave da API nem o token de redefinição.
