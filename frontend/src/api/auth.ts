@@ -10,6 +10,11 @@ export type RegisterData = Credentials & {
   name: string
 }
 
+export type PasswordChangeData = {
+  current_password: string
+  new_password: string
+}
+
 export const authApi = {
   register: (data: RegisterData) =>
     request<AuthResponse>('/auth/register', { method: 'POST', body: data, auth: false }),
@@ -25,5 +30,10 @@ export const authApi = {
     request<{ message: string }>(
       '/auth/password-reset/confirm',
       { method: 'POST', body: data, auth: false },
+    ),
+  changePassword: (data: PasswordChangeData) =>
+    request<{ message: string; access_token: string; refresh_token: string }>(
+      '/auth/password/change',
+      { method: 'POST', body: data },
     ),
 }

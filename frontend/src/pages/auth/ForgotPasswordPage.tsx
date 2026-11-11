@@ -5,6 +5,7 @@ import { authApi } from '../../api/auth'
 import { Button } from '../../components/Button'
 import { AuthLayout } from '../../components/layout/AuthLayout'
 import { TextField } from '../../components/TextField'
+import { describeError } from '../../lib/errors'
 
 export default function ForgotPasswordPage() {
   const [email, setEmail] = useState('')
@@ -24,7 +25,7 @@ export default function ForgotPasswordPage() {
       setMessage(response.message)
       setDebugUrl(response.debug_reset_url ?? '')
     } catch (requestError) {
-      setError(requestError instanceof Error ? requestError.message : 'Não foi possível enviar o pedido.')
+      setError(describeError(requestError))
     } finally {
       setSubmitting(false)
     }

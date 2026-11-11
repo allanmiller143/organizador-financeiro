@@ -18,6 +18,8 @@ Aplicação web para organizar caixinhas financeiras, registrar aportes e retira
 - Exportação simples do Histórico em CSV.
 - Exportação dos detalhes dos depósitos ainda ativos, com rendimento e tributos.
 - Sincronização do CDI diário pela série pública do Banco Central do Brasil.
+- Recuperação de senha por link de uso único, enviado pela API HTTPS da Brevo.
+- Perfil para conferir os dados da conta e trocar a senha com a senha atual.
 
 ## Estrutura do projeto
 

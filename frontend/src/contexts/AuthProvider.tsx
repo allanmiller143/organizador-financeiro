@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 
-import { authApi, type Credentials, type RegisterData } from '../api/auth'
+import { authApi, type Credentials, type PasswordChangeData, type RegisterData } from '../api/auth'
 import { ApiError, refreshAccessToken, setSessionExpiredHandler } from '../api/client'
 import { tokens } from '../api/tokens'
 import type { AuthResponse, User } from '../api/types'
@@ -21,7 +21,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const logout = useCallback(() => {
     tokens.clear()
     setUser(null)
-    queryClient.clear() // o próximo usuário não pode ver dados do anterior
+    queryClient.clear()
   }, [queryClient])
 
   useEffect(() => {
@@ -33,18 +33,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     let cancelled = false
 
     async function restoreSession() {
-      if (tokens.getRefresh() && (await refreshAccessToken())) {
-        try {
-          const { user } = await authApi.me()
-          if (!cancelled) setUser(user)
-        } catch (error) {
-          if (error instanceof ApiError) tokens.clear()
+      try {
+        if (!tokens.getRefresh()) return
+        const refreshed = await refreshAccessToken()
+        if (!refreshed) {
+          tokens.clear()
+          return
         }
+        const { user: restoredUser } = await authApi.me()
+        if (!cancelled) setUser(restoredUser)
+      } catch (error) {
+        // Uma falha de rede não deve deixar o spinner preso nem apagar a sessão local.
+        if (!(error instanceof ApiError && error.code === 'network_error')) {
+          tokens.clear()
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false)
       }
-      if (!cancelled) setIsLoading(false)
     }
 
-    restoreSession()
+    void restoreSession()
 
     return () => {
       cancelled = true
@@ -52,15 +60,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, [queryClient])
 
+  const changePassword = useCallback(async (data: PasswordChangeData) => {
+    const response = await authApi.changePassword(data)
+    tokens.setAccess(response.access_token)
+    tokens.setRefresh(response.refresh_token)
+    return response.message
+  }, [])
+
   const value = useMemo(
     () => ({
       user,
       isLoading,
       login: async (data: Credentials) => startSession(await authApi.login(data)),
       register: async (data: RegisterData) => startSession(await authApi.register(data)),
+      changePassword,
       logout,
     }),
-    [user, isLoading, startSession, logout],
+    [user, isLoading, startSession, changePassword, logout],
   )
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>

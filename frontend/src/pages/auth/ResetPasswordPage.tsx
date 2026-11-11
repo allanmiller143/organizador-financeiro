@@ -5,6 +5,7 @@ import { authApi } from '../../api/auth'
 import { Button } from '../../components/Button'
 import { AuthLayout } from '../../components/layout/AuthLayout'
 import { TextField } from '../../components/TextField'
+import { describeError } from '../../lib/errors'
 
 export default function ResetPasswordPage() {
   const [searchParams] = useSearchParams()
@@ -32,7 +33,7 @@ export default function ResetPasswordPage() {
       await authApi.confirmPasswordReset({ token, password })
       setComplete(true)
     } catch (requestError) {
-      setError(requestError instanceof Error ? requestError.message : 'Link inválido ou expirado.')
+      setError(describeError(requestError))
     } finally {
       setSubmitting(false)
     }

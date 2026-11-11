@@ -13,7 +13,11 @@ from app.errors import AppError
 from app.extensions import db, jwt
 from app.models import User
 from app.schemas.auth import LoginIn, RegisterIn
-from app.schemas.password_reset import PasswordResetConfirmIn, PasswordResetRequestIn
+from app.schemas.password_reset import (
+    PasswordChangeIn,
+    PasswordResetConfirmIn,
+    PasswordResetRequestIn,
+)
 from app.services import auth_service
 
 bp = Blueprint("auth", __name__)
@@ -80,6 +84,20 @@ def confirm_password_reset():
     data = PasswordResetConfirmIn.model_validate(request.get_json(silent=True) or {})
     auth_service.reset_password(data.token, data.password)
     return jsonify(message="Senha redefinida. Entre usando a nova senha.")
+
+
+@bp.post("/password/change")
+@jwt_required()
+def change_password():
+    user = db.session.get(User, uuid.UUID(get_jwt_identity()))
+    if user is None:
+        raise AppError("Usuário não encontrado.", 404, "user_not_found")
+    data = PasswordChangeIn.model_validate(request.get_json(silent=True) or {})
+    auth_service.change_password(user, data.current_password, data.new_password)
+    return jsonify(
+        message="Senha alterada com segurança.",
+        **_tokens(user),
+    )
 
 
 @bp.post("/refresh")

@@ -1,51 +1,48 @@
 import { ApiError } from '../api/client'
 
-// Os erros que uma tela precisa mostrar: um texto por campo + um texto geral.
 export type FormErrors = {
   fields: Record<string, string>
   general: string
 }
 
-// "Sem erros": o estado inicial de um formulário.
 export const noErrors: FormErrors = { fields: {}, general: '' }
 
 export function toFormErrors(error: unknown): FormErrors {
-  // Se nem chegou a ser uma resposta do backend, foi problema de conexão.
   if (!(error instanceof ApiError)) {
-    return { fields: {}, general: 'Não foi possível conectar ao servidor.' }
+    return { fields: {}, general: 'Não foi possível conectar ao servidor. Verifique sua conexão e tente novamente.' }
   }
 
   const fields: Record<string, string> = {}
-
-  // Erro de validação: o backend diz quais campos estão errados.
-  // As mensagens dele são técnicas (em inglês), então usamos uma frase simples.
   for (const detail of error.details ?? []) {
     fields[detail.field] = 'Confira este campo.'
   }
 
-  // E-mail repetido: a mensagem fica embaixo do campo de e-mail.
   if (error.code === 'email_taken') {
     fields.email = error.message
     return { fields, general: '' }
   }
 
-    // Erros de data aparecem embaixo do campo de data.
   if (error.code === 'date_in_future' || error.code === 'date_before_opening') {
     fields.occurred_on = error.message
     return { fields, general: '' }
   }
 
-  // Se não há erro de campo, o erro é geral (ex.: senha incorreta).
   const hasFieldErrors = Object.keys(fields).length > 0
-  return { fields, general: hasFieldErrors ? '' : error.message }
+  return { fields, general: hasFieldErrors ? '' : describeError(error) }
 }
 
-// Transforma qualquer erro numa frase que ajuda a pessoa.
 export function describeError(error: unknown): string {
   if (error instanceof ApiError) {
+    if (error.code === 'network_error') {
+      return 'Não foi possível acessar o servidor agora. Verifique sua internet e tente novamente.'
+    }
     if (error.code === 'cdi_not_synced' || error.code === 'cdi_incomplete') {
-      return 'Faltam dados do CDI para este período. Rode "flask --app wsgi sync-cdi --from AAAA-MM-DD" no backend, usando a data de abertura da caixinha, e recarregue a página.'    }
+      return 'Faltam dados do CDI para este período. Sincronize o CDI no backend e tente novamente.'
+    }
+    if (error.status >= 500 && error.code === 'unknown_error') {
+      return 'O serviço está temporariamente indisponível. Tente novamente em instantes.'
+    }
     return error.message
   }
-  return 'Não foi possível conectar ao servidor.'
+  return 'Não foi possível acessar o servidor. Verifique sua conexão e tente novamente.'
 }

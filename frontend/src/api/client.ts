@@ -18,29 +18,34 @@ export class ApiError extends Error {
 type RequestOptions = {
   method?: 'GET' | 'POST' | 'PATCH' | 'DELETE'
   body?: unknown
-  auth?: boolean // padrão: true. Login e cadastro usam false.
+  auth?: boolean
 }
 
 let sessionExpiredHandler: (() => void) | null = null
 
-// Em desenvolvimento fica vazio e o proxy do Vite encaminha /api para o Flask.
-// Em produção, VITE_API_URL aponta para a URL pública do backend.
 const API_URL = (import.meta.env.VITE_API_URL ?? '').replace(/\/$/, '')
+const REQUEST_TIMEOUT_MS = 20_000
+const NETWORK_ERROR_MESSAGE = 'Não foi possível acessar o servidor. Verifique sua conexão e tente novamente.'
 
 export function setSessionExpiredHandler(handler: (() => void) | null) {
   sessionExpiredHandler = handler
 }
 
-function send(path: string, options: RequestOptions, token: string | null) {
+async function send(path: string, options: RequestOptions, token: string | null): Promise<Response> {
   const headers: Record<string, string> = {}
   if (options.body !== undefined) headers['Content-Type'] = 'application/json'
   if (token) headers.Authorization = `Bearer ${token}`
 
-  return fetch(`${API_URL}/api${path}`, {
-    method: options.method ?? 'GET',
-    headers,
-    body: options.body !== undefined ? JSON.stringify(options.body) : undefined,
-  })
+  try {
+    return await fetch(`${API_URL}/api${path}`, {
+      method: options.method ?? 'GET',
+      headers,
+      body: options.body !== undefined ? JSON.stringify(options.body) : undefined,
+      signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+    })
+  } catch {
+    throw new ApiError(0, 'network_error', NETWORK_ERROR_MESSAGE)
+  }
 }
 
 async function parseError(response: Response): Promise<ApiError> {
@@ -48,13 +53,13 @@ async function parseError(response: Response): Promise<ApiError> {
   try {
     body = await response.json()
   } catch {
-    // corpo vazio ou que não é JSON
+    // Corpo vazio ou inesperado.
   }
   const error = body?.error
   return new ApiError(
     response.status,
     error?.code ?? 'unknown_error',
-    error?.message ?? 'Erro inesperado.',
+    error?.message ?? 'O servidor não conseguiu concluir a solicitação. Tente novamente.',
     error?.details,
   )
 }
@@ -71,7 +76,6 @@ async function doRefresh(): Promise<boolean> {
   return true
 }
 
-// Se vários pedidos falharem ao mesmo tempo, só uma renovação acontece.
 let refreshPromise: Promise<boolean> | null = null
 
 export function refreshAccessToken(): Promise<boolean> {

@@ -19,13 +19,9 @@ class Config:
     CDI_AUTO_SYNC = True
 
     FRONTEND_URL = os.getenv("FRONTEND_URL", "http://localhost:5173")
-    MAIL_SERVER = os.getenv("MAIL_SERVER")
-    MAIL_PORT = int(os.getenv("MAIL_PORT", "587"))
-    MAIL_USERNAME = os.getenv("MAIL_USERNAME")
-    MAIL_PASSWORD = os.getenv("MAIL_PASSWORD")
-    MAIL_DEFAULT_SENDER = os.getenv("MAIL_DEFAULT_SENDER", os.getenv("MAIL_USERNAME"))
-    MAIL_USE_TLS = _env_bool("MAIL_USE_TLS", True)
-    MAIL_TIMEOUT = int(os.getenv("MAIL_TIMEOUT", "15"))
+    BREVO_API_KEY = os.getenv("BREVO_API_KEY")
+    BREVO_FROM_EMAIL = os.getenv("BREVO_FROM_EMAIL")
+    BREVO_FROM_NAME = os.getenv("BREVO_FROM_NAME", "Organizador Financeiro")
     PASSWORD_RESET_TOKEN_MINUTES = int(os.getenv("PASSWORD_RESET_TOKEN_MINUTES", "30"))
     PASSWORD_RESET_DEBUG = _env_bool("PASSWORD_RESET_DEBUG", False)
 

@@ -12,6 +12,7 @@ from app.extensions import db
 from app.models import User
 from app.security import hash_password, verify_password
 from app.services.email_service import (
+    EmailDeliveryError,
     password_reset_email_is_configured,
     send_password_reset_email,
 )
@@ -66,13 +67,11 @@ def request_password_reset(email: str) -> str | None:
 
     try:
         send_password_reset_email(user.email, reset_url)
-    except Exception as exc:
-        current_app.logger.exception("Falha ao enviar e-mail de redefinição")
-        user.password_reset_token_hash = None
-        user.password_reset_expires_at = None
-        db.session.commit()
+    except EmailDeliveryError as exc:
+        # Mantém o token: o provedor pode ter aceitado o e-mail antes de a conexão falhar.
+        current_app.logger.warning("Falha na entrega do e-mail de recuperação")
         raise AppError(
-            "Não foi possível enviar o e-mail agora. Tente novamente mais tarde.",
+            "Não foi possível confirmar o envio agora. Tente novamente em instantes.",
             503,
             "password_reset_email_failed",
         ) from exc
@@ -97,6 +96,19 @@ def reset_password(token: str, password: str) -> None:
         raise AppError("Link de redefinição inválido ou expirado.", 400, "invalid_reset_token")
 
     user.password_hash = hash_password(password)
+    user.password_reset_token_hash = None
+    user.password_reset_expires_at = None
+    user.auth_version += 1
+    db.session.commit()
+
+
+def change_password(user: User, current_password: str, new_password: str) -> None:
+    if not verify_password(user.password_hash, current_password):
+        raise AppError("A senha atual não confere.", 400, "current_password_invalid")
+    if current_password == new_password:
+        raise AppError("Escolha uma senha diferente da atual.", 400, "password_unchanged")
+
+    user.password_hash = hash_password(new_password)
     user.password_reset_token_hash = None
     user.password_reset_expires_at = None
     user.auth_version += 1
